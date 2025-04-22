@@ -14,7 +14,7 @@ abstract class StoreScopeWidget extends StoreScopeStatefulWidget {
 
 class _StoreScopeWidgetState extends State<StoreScopeWidget> {
   @override
-  Widget build(BuildContext _) {
+  Widget build(BuildContext context) {
     return widget.build(context);
   }
 }
