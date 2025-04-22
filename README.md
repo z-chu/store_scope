@@ -10,7 +10,7 @@ For general information about developing packages, see the Dart guide for
 and the Flutter guide for
 [developing packages and plugins](https://flutter.dev/to/develop-packages). 
 -->
-[![pub.dev Version (including pre-releases)](https://img.shields.io/pub/v/store_scope?include_prereleases)](https://github.com/z-chu/store_scope)
+[![pub.dev Version (including pre-releases)](https://img.shields.io/pub/v/store_scope?include_prereleases)](https://pub.dev/packages/store_scope)
 # StoreScope
 
 一个轻量级的 Flutter 状态管理库，专注于提供简洁的状态生命周期管理和局部状态管理。
