@@ -17,7 +17,7 @@ class StoreImpl implements UnmountableStore {
     return _instances.containsKey(provider);
   }
 
-   @override
+  @override
   T? find<T>(Provider<T> provider) {
     if (!_mounted) return null;
     return _instances[provider] as T?;
@@ -100,8 +100,6 @@ class StoreImpl implements UnmountableStore {
       }
     }
   }
-
- 
 
   @override
   void unmount() {

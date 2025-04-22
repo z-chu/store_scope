@@ -13,7 +13,7 @@ abstract class Store {
   bool get mounted;
 
   /// Checks if a provider instance has already been created in the store.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// final counterProvider = Provider((store) => 0);
@@ -25,7 +25,7 @@ abstract class Store {
 
   /// Finds an existing provider instance in the store.
   /// Returns null if the provider instance hasn't been created yet.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// final counterProvider = Provider((store) => 0);
@@ -39,7 +39,7 @@ abstract class Store {
   /// Gets or creates a provider instance.
   /// If the instance doesn't exist, it will be created and cached.
   /// This method is typically used for accessing global shared state.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// final counterProvider = Provider((store) => 0);
@@ -50,7 +50,7 @@ abstract class Store {
   /// Binds a provider to a disposable widget or object.
   /// The provider instance will be tracked and cleaned up when the disposeNotifier signals disposal.
   /// This method is used to create scoped provider instances that are tied to widget lifecycle.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// class _MyWidgetState extends State<MyWidget> with DisposeStateAwareMixin {
