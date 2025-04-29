@@ -56,8 +56,7 @@ class Counter {
 3. 创建 Provider:
 
 ```dart
-// 创建一个可绑定的 Provider，用于管理 Counter 实例
-final counterProvider = Provider.bindable(
+final counterProvider = Provider.from(
   (space) => Counter(),
 );
 ```
@@ -73,7 +72,7 @@ class Home extends StatelessWidget {
   @override
   Widget build(context) {
     // 使用 shared 方法会让 counter 一直存在于内存中，直到 StoreScope 被移除
-    var counter = context.shared(counterProvider);
+    var counter = context.store.shared(counterProvider);
     return Scaffold(
       appBar: AppBar(
         title: ValueListenableBuilder<int>(
@@ -97,7 +96,7 @@ class Other extends StatelessWidget {
    @override
   Widget build(BuildContext context) {
     // 在其他页面中也可以访问同一个全局状态
-    final counter = context.shared(counterProvider);
+    final counter = context.store.shared(counterProvider);
     
     return Scaffold(
       body: Center(
@@ -116,12 +115,12 @@ class Other extends StatelessWidget {
 #### 方式二：使用 bind（自动销毁）
 
 ```dart
-class Home extends StatelessWidget with DisposeStateAwareStatelessMixin{
+class Home extends StatelessWidget with ScopedStatelessMixin{
 
   @override
   Widget build(context) {
-    // 使用 bind 方法获取状态，该状态会在所有绑定的页面销毁时自动释放
-    var counter = context.bindWith(counterProvider,this);
+    // 在所有绑定的页面销毁时自动释放counter
+    var counter = context.store.bindWithScoped(counterProvider,this);
     return Scaffold(
       appBar: AppBar(
         title: ValueListenableBuilder<int>(
@@ -140,12 +139,12 @@ class Home extends StatelessWidget with DisposeStateAwareStatelessMixin{
 }
 
 
-class Other extends StatelessWidget with DisposeStateAwareStatelessMixin{
+class Other extends StatelessWidget with ScopedStatelessMixin{
 
   @override
   Widget build(context){
-    // bind方法会在所有绑定的页面销毁时自动释放counter
-    final counter = context.bindWith(counterProvider, this);
+    // 在所有绑定的页面销毁时自动释放counter
+    final counter = context.bindWithScoped(counterProvider, this);
     
     return Scaffold(
       body: Center(

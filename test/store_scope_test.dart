@@ -9,9 +9,9 @@ void main() {
         StoreScope(
           child: Builder(
             builder: (context) {
-              final store = context.store;
+              final store = context.storeOrNull;
               expect(store, isNotNull);
-              expect(context.requireStore.mounted, isTrue);
+              expect(context.store.mounted, isTrue);
               return const SizedBox();
             },
           ),
@@ -23,7 +23,7 @@ void main() {
       await tester.pumpWidget(
         Builder(
           builder: (context) {
-            expect(() => context.requireStore, throwsFlutterError);
+            expect(() => context.store, throwsFlutterError);
             return const SizedBox();
           },
         ),
@@ -52,7 +52,7 @@ void main() {
 
     test('should watch provider', () {
       final notifier = DisposeStateNotifier();
-      final instance = store.bind(provider, notifier);
+      final instance = store.bindWith(provider, notifier);
       expect(instance, isNotNull);
       notifier.dispose();
       expect(store.exists(provider), isFalse);
@@ -76,7 +76,7 @@ void main() {
   });
 }
 
-class TestProvider extends Provider<String> {
+class TestProvider extends ProviderBase<String> {
   @override
   String create(Store store) => 'test';
 

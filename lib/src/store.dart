@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'dispose_state_notifier.dart';
 import 'provider.dart';
 import 'store_scope_config.dart';
 
@@ -21,7 +22,7 @@ abstract class Store {
   /// store.shared(counterProvider) // or store.bind(counterProvider, disposeNotifier);
   /// store.exists(counterProvider) // returns true
   /// ```
-  bool exists<T>(Provider<T> provider);
+  bool exists<T>(ProviderBase<T> provider);
 
   /// Finds an existing provider instance in the store.
   /// Returns null if the provider instance hasn't been created yet.
@@ -34,7 +35,7 @@ abstract class Store {
   /// store.shared(counterProvider); // or store.bind(counterProvider, disposeNotifier);
   /// print(value == null); // false
   /// ```
-  T? find<T>(Provider<T> provider);
+  T? find<T>(ProviderBase<T> provider);
 
   /// Gets or creates a provider instance.
   /// If the instance doesn't exist, it will be created and cached.
@@ -45,7 +46,7 @@ abstract class Store {
   /// final counterProvider = Provider((store) => 0);
   /// final counter = store.shared(counterProvider); // Gets or creates counter instance
   /// ```
-  T shared<T>(Provider<T> provider);
+  T shared<T>(ProviderBase<T> provider);
 
   /// Binds a provider to a disposable widget or object.
   /// The provider instance will be tracked and cleaned up when the disposeNotifier signals disposal.
@@ -58,8 +59,23 @@ abstract class Store {
   ///   // Counter instance will be cleaned up when widget is disposed
   /// }
   /// ```
-  T bind<T>(Provider<T> provider, Listenable disposeNotifier);
+  T bindWith<T>(ProviderBase<T> provider, Listenable scope);
 }
+
+/// An interface for objects that expose their own lifecycle scope.
+///
+/// Implement this interface to allow external listeners to observe the lifecycle
+/// of the object via the [scope] property. When the scope becomes invalid (for example,
+/// when the object is disposed), all listeners will be notified.
+///
+/// It is recommended to use [DisposeStateNotifier] to implement this interface,
+/// as it provides a convenient way to manage and notify disposal state.
+abstract class ScopeAware {
+  /// A [Listenable] that notifies listeners when this object's scope becomes invalid,
+  /// typically when the object is disposed.
+  Listenable get scope;
+}
+
 
 /// Interface for objects that own a Store instance.
 /// Provides access to the store and ability to unmount it.
@@ -83,4 +99,11 @@ class StoreOwnerImpl extends StoreOwner {
 
   @override
   void unmountStore() => _store.unmount();
+}
+
+
+extension StoreExtension on Store {
+  T bindWithScoped<T>(ProviderBase<T> provider, ScopeAware scopeAware) {
+    return bindWith(provider, scopeAware.scope);
+  }
 }

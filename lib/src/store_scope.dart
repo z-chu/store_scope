@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:store_scope/src/dispose_state_notifier.dart';
-
-import 'provider.dart';
 import 'store.dart';
 
 part 'extensions.dart';

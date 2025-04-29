@@ -1,3 +1,7 @@
+## 0.0.3
+
+* Refactor code to use the new ScopeAware interface, optimizing binding and lifecycle management
+
 ## 0.0.2
 
 * fix: change the parameter name

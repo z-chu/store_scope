@@ -1,10 +1,10 @@
 part of 'store.dart';
 
 class StoreImpl implements UnmountableStore {
-  final Map<Provider<dynamic>, dynamic> _instances = {};
-  final Map<Provider<dynamic>, Set<Listenable>> _watchers = {};
+  final Map<ProviderBase<dynamic>, dynamic> _instances = {};
+  final Map<ProviderBase<dynamic>, Set<Listenable>> _watchers = {};
   final Map<Listenable, VoidCallback> _listenerCallbacks = {};
-  final _sharedProviders = <Provider>{};
+  final _sharedProviders = <ProviderBase>{};
 
   bool _mounted = true;
 
@@ -12,18 +12,18 @@ class StoreImpl implements UnmountableStore {
   bool get mounted => _mounted;
 
   @override
-  bool exists<T>(Provider<T> provider) {
+  bool exists<T>(ProviderBase<T> provider) {
     if (!_mounted) return false;
     return _instances.containsKey(provider);
   }
 
   @override
-  T? find<T>(Provider<T> provider) {
+  T? find<T>(ProviderBase<T> provider) {
     if (!_mounted) return null;
     return _instances[provider] as T?;
   }
 
-  T _read<T>(Provider<T> provider, bool shared) {
+  T _read<T>(ProviderBase<T> provider, bool shared) {
     var instance = _instances[provider];
     if (instance == null) {
       instance = provider.create(this);
@@ -43,13 +43,13 @@ class StoreImpl implements UnmountableStore {
   }
 
   @override
-  T shared<T>(Provider<T> provider) {
+  T shared<T>(ProviderBase<T> provider) {
     _checkMounted();
     _warnIfBound(provider);
     return _read(provider, true);
   }
 
-  void _invalidate<T>(Provider<T> provider) {
+  void _invalidate<T>(ProviderBase<T> provider) {
     // 检查是否是 shared provider，如果是则不清理
     if (_sharedProviders.contains(provider)) {
       return;
@@ -66,15 +66,15 @@ class StoreImpl implements UnmountableStore {
   /// Watches a provider with the given notifier.
   /// When the notifier is disposed, it will automatically unwatch the provider.
   @override
-  T bind<T>(Provider<T> provider, Listenable disposeNotifier) {
+  T bindWith<T>(ProviderBase<T> provider, Listenable scope) {
     _checkMounted();
     _warnIfShared(provider);
     final watchers = _watchers.putIfAbsent(provider, () => <Listenable>{});
-    if (watchers.add(disposeNotifier)) {
+    if (watchers.add(scope)) {
       // 只在第一次添加时创建并存储回调
-      callback() => _unbind(provider, disposeNotifier);
-      _listenerCallbacks[disposeNotifier] = callback;
-      disposeNotifier.addListener(callback);
+      callback() => _unbind(provider, scope);
+      _listenerCallbacks[scope] = callback;
+      scope.addListener(callback);
       _log('Provider "${provider.runtimeType}" bound to new lifecycle');
     }
     return _read(provider, false);
@@ -82,13 +82,13 @@ class StoreImpl implements UnmountableStore {
 
   /// Unwatches a provider for the given notifier.
   /// If there are no more watchers, the provider will be reset.
-  void _unbind<T>(Provider<T> provider, Listenable disposeNotifier) {
+  void _unbind<T>(ProviderBase<T> provider, Listenable scope) {
     final watchers = _watchers[provider];
     if (watchers == null || watchers.isEmpty) return;
-    if (watchers.remove(disposeNotifier)) {
-      final callback = _listenerCallbacks.remove(disposeNotifier);
+    if (watchers.remove(scope)) {
+      final callback = _listenerCallbacks.remove(scope);
       if (callback != null) {
-        disposeNotifier.removeListener(callback);
+        scope.removeListener(callback);
         _log('Provider "${provider.runtimeType}" unbound from lifecycle');
       }
       if (watchers.isEmpty) {
@@ -130,7 +130,7 @@ Store unmounted:
     }
   }
 
-  void _warnIfShared<T>(Provider<T> provider) {
+  void _warnIfShared<T>(ProviderBase<T> provider) {
     if (_sharedProviders.contains(provider)) {
       assert(() {
         _log('''
@@ -142,7 +142,7 @@ The lifecycle binding will have no effect on instance disposal.
     }
   }
 
-  void _warnIfBound<T>(Provider<T> provider) {
+  void _warnIfBound<T>(ProviderBase<T> provider) {
     if (_watchers.containsKey(provider)) {
       assert(() {
         _log('''

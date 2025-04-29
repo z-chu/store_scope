@@ -1,47 +1,40 @@
 import 'package:flutter/widgets.dart';
-import 'package:store_scope/src/dispose_state_notifier.dart';
 import 'package:store_scope/src/provider.dart';
 import 'package:store_scope/src/store.dart';
 
-class StoreSpace implements DisposeStateAware, Store {
+class StoreSpace implements ScopeAware, Store {
   final Store _store;
 
   @override
-  final Listenable disposeNotifier;
+  final Listenable scope;
 
-  const StoreSpace(this._store, this.disposeNotifier);
+  const StoreSpace(this._store, this.scope);
 
   /// Binds a provider within the current space scope.
   ///
   /// This is the recommended way to bind a provider in a Space.
-  /// It automatically uses the Space's own [disposeNotifier] to handle cleanup.
+  /// It automatically uses the Space's own [scope] to handle cleanup.
   ///
   /// Example:
   /// ```dart
-  /// final myState = space.bindWith(myProvider);
+  /// final myState = space.bind(myProvider);
   /// ```
-  T bindWith<T>(Provider<T> provider) {
-    return _store.bind(provider, disposeNotifier);
-  }
-
-  /// @nodoc
-  /// This is an internal implementation method.
-  ///
-  /// Please use [bindWith] instead, which automatically handles the dispose notification
-  /// for the current space scope.
-  @override
-  @protected
-  T bind<T>(Provider<T> provider, Listenable disposeNotifier) {
-    return _store.bind(provider, disposeNotifier);
+  T bind<T>(ProviderBase<T> provider) {
+    return _store.bindWith(provider, scope);
   }
 
   @override
-  bool exists<T>(Provider<T> provider) {
+  T bindWith<T>(ProviderBase<T> provider, Listenable scope) {
+    return _store.bindWith(provider, scope);
+  }
+
+  @override
+  bool exists<T>(ProviderBase<T> provider) {
     return _store.exists(provider);
   }
 
   @override
-  T? find<T>(Provider<T> provider) {
+  T? find<T>(ProviderBase<T> provider) {
     return _store.find(provider);
   }
 
@@ -49,7 +42,7 @@ class StoreSpace implements DisposeStateAware, Store {
   bool get mounted => _store.mounted;
 
   @override
-  T shared<T>(Provider<T> provider) {
+  T shared<T>(ProviderBase<T> provider) {
     return _store.shared(provider);
   }
 }

@@ -34,10 +34,9 @@ final numberProvider = ViewModelProvider<NumberViewModel>((space) {
   return NumberViewModel();
 });
 final counterProvider = ViewModelProvider<CounterViewModel>((space) {
-  final numberViewModel = space.bindWith(numberProvider);
+  final numberViewModel = space.bind(numberProvider);
   return CounterViewModel(numberViewModel);
 });
-
 void main() {
   runApp(const MyApp());
 }
@@ -82,12 +81,15 @@ class StartPage extends StatelessWidget {
   }
 }
 
-class CounterPage extends StatelessWidget with DisposeStateAwareStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   CounterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    CounterViewModel viewModel = context.bindWith(counterProvider, this);
+    CounterViewModel viewModel = context.store.bindWithScoped(
+      counterProvider,
+      this,
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('Counter Example')),
       body: Center(
@@ -143,7 +145,7 @@ class StoreScopePage extends StoreScopeWidget {
 
   @override
   Widget build(BuildContext context) {
-    var viewModel = context.requireStore.shared(counterProvider);
+    var viewModel = context.store.shared(counterProvider);
     viewModel.increment();
     return const ChildPage();
   }
@@ -159,7 +161,7 @@ class ChildPage extends StatefulWidget {
 class _ChildPageState extends State<ChildPage> {
   @override
   Widget build(BuildContext context) {
-    context.requireStore.shared(counterProvider).increment();
+    context.store.shared(counterProvider).increment();
 
     return CounterPage();
   }

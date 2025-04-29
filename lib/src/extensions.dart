@@ -7,7 +7,7 @@ extension StoreContextExtension on BuildContext {
   /// ancestor.
   ///
   /// If no [StoreScope] is found, this will throw a [FlutterError].
-  Store get requireStore {
+  Store get store {
     if (this is StoreOwner) {
       return (this as StoreOwner).store;
     }
@@ -27,7 +27,7 @@ extension StoreContextExtension on BuildContext {
     return scope.store;
   }
 
-  Store? get store {
+  Store? get storeOrNull {
     if (this is StoreOwner) {
       return (this as StoreOwner).store;
     }
@@ -35,15 +35,5 @@ extension StoreContextExtension on BuildContext {
     return scope?.store;
   }
 
-  T read<T>(Provider<T> provider) => requireStore.shared(provider);
-
-  T bind<T>(Provider<T> provider, Listenable disposeNotifier) =>
-      requireStore.bind(provider, disposeNotifier);
-
-  T bindWith<T>(Provider<T> provider, DisposeStateAware disposeStateAware) =>
-      bind(provider, disposeStateAware.disposeNotifier);
-
-  bool exists<T>(Provider<T> provider) => requireStore.exists(provider);
-
-  bool get storeMounted => store?.mounted ?? false;
+  bool get storeMounted => storeOrNull?.mounted ?? false;
 }
