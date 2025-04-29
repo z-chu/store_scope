@@ -160,9 +160,13 @@ class ChildPage extends StatefulWidget {
 
 class _ChildPageState extends State<ChildPage> {
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
     context.store.shared(counterProvider).increment();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return CounterPage();
   }
 }

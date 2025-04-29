@@ -8,10 +8,7 @@ extension StoreContextExtension on BuildContext {
   ///
   /// If no [StoreScope] is found, this will throw a [FlutterError].
   Store get store {
-    if (this is StoreOwner) {
-      return (this as StoreOwner).store;
-    }
-    final scope = dependOnInheritedWidgetOfExactType<_InheritedStoreScope>();
+    final scope = storeOrNull;
     if (scope == null) {
       throw FlutterError.fromParts(<DiagnosticsNode>[
         ErrorSummary('No StoreScope found in context'),
@@ -24,14 +21,17 @@ extension StoreContextExtension on BuildContext {
         describeElement('The context used was'),
       ]);
     }
-    return scope.store;
+    return scope;
   }
 
   Store? get storeOrNull {
     if (this is StoreOwner) {
       return (this as StoreOwner).store;
     }
-    final scope = dependOnInheritedWidgetOfExactType<_InheritedStoreScope>();
+    final element =
+        getElementForInheritedWidgetOfExactType<_InheritedStoreScope>();
+    final _InheritedStoreScope? scope =
+        element?.widget as _InheritedStoreScope?;
     return scope?.store;
   }
 

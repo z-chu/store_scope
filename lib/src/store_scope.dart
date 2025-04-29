@@ -44,8 +44,17 @@ class _StoreScopeState extends State<StoreScope> {
   Store get _store => _storeOwner.store;
 
   @override
-  Widget build(BuildContext context) =>
-      _InheritedStoreScope(store: _store, child: widget.child);
+  Widget build(BuildContext context) {
+    // We use ValueKey(_store) to force the entire subtree to rebuild
+    // whenever the store instance changes. This ensures that all dependent
+    // widgets (including their State) are recreated, and their initState
+    // methods are called again.
+    return _InheritedStoreScope(
+      key: ValueKey(_store),
+      store: _store,
+      child: widget.child,
+    );
+  }
 
   @override
   void didUpdateWidget(StoreScope oldWidget) {
@@ -87,11 +96,18 @@ class _StoreScopeState extends State<StoreScope> {
 class _InheritedStoreScope extends InheritedWidget {
   final Store store;
 
-  const _InheritedStoreScope({required this.store, required super.child});
+  const _InheritedStoreScope({
+    required this.store,
+    required super.child,
+    super.key,
+  });
 
   @override
   bool updateShouldNotify(covariant _InheritedStoreScope oldWidget) {
-    return oldWidget.store != store;
+    // This InheritedWidget is only used for dependency injection (sharing the store).
+    // It does NOT provide any reactive update mechanism.
+    // All updates are handled by rebuilding the entire subtree via key changes.
+    return false;
   }
 
   @override

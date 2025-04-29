@@ -1,6 +1,6 @@
 name: store_scope
 description: A Flutter state management solution using store scope pattern
-version: 0.0.3
+version: 0.0.4
 homepage: https://github.com/z-chu/store_scope
 repository: https://github.com/z-chu/store_scope
 

@@ -1,3 +1,7 @@
+## 0.0.4
+
+* Allow access to store in initState; widget tree rebuilds on store changes
+
 ## 0.0.3
 
 * Refactor code to use the new ScopeAware interface, optimizing binding and lifecycle management
