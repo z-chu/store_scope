@@ -1,3 +1,7 @@
+## 0.0.5
+
+* Support passing in parameters when creating a provider
+
 ## 0.0.4
 
 * Allow access to store in initState; widget tree rebuilds on store changes

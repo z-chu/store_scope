@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:store_scope/store_scope.dart';
 
-class NumberViewModel extends ViewModel {
-  int get number => 5;
+class NumberObj  {
+  final int number;
+  NumberObj({required this.number});
 }
 
 class CounterViewModel extends ViewModel {
-  final NumberViewModel numberViewModel;
+  final NumberObj numberObj;
+  final int multiplyNumber;
 
-  CounterViewModel(this.numberViewModel);
+  CounterViewModel(this.numberObj, this.multiplyNumber);
 
   final _count = ValueNotifier<int>(0);
   ValueNotifier<int> get count => _count;
 
   void increment() {
-    _count.value = count.value + numberViewModel.number;
+    _count.value = count.value + numberObj.number;
   }
 
   @override
   void init() {
     super.init();
-    count.value = numberViewModel.number * 2;
+    count.value = numberObj.number * multiplyNumber;
   }
 
   @override
@@ -30,12 +32,12 @@ class CounterViewModel extends ViewModel {
   }
 }
 
-final numberProvider = ViewModelProvider<NumberViewModel>((space) {
-  return NumberViewModel();
+final numberProvider = Provider.withArgument((space,int number) {
+  return NumberObj(number: number);
 });
-final counterProvider = ViewModelProvider<CounterViewModel>((space) {
-  final numberViewModel = space.bind(numberProvider);
-  return CounterViewModel(numberViewModel);
+final counterProvider = ViewModelProvider.withArgument((space,int multiplyNumber) {
+  final numberViewModel = space.bind(numberProvider(5));
+  return CounterViewModel(numberViewModel,multiplyNumber);
 });
 void main() {
   runApp(const MyApp());
@@ -87,7 +89,7 @@ class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   @override
   Widget build(BuildContext context) {
     CounterViewModel viewModel = context.store.bindWithScoped(
-      counterProvider,
+      counterProvider(2),
       this,
     );
     return Scaffold(
@@ -145,7 +147,7 @@ class StoreScopePage extends StoreScopeWidget {
 
   @override
   Widget build(BuildContext context) {
-    var viewModel = context.store.shared(counterProvider);
+    var viewModel = context.store.shared(counterProvider(2));
     viewModel.increment();
     return const ChildPage();
   }
@@ -162,7 +164,7 @@ class _ChildPageState extends State<ChildPage> {
   @override
   void initState() {
     super.initState();
-    context.store.shared(counterProvider).increment();
+    context.store.shared(counterProvider(2)).increment();
   }
 
   @override
