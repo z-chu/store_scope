@@ -3,7 +3,6 @@ part of 'store.dart';
 class StoreImpl implements UnmountableStore {
   final Map<ProviderBase<dynamic>, dynamic> _instances = {};
   final Map<ProviderBase<dynamic>, Set<Listenable>> _watchers = {};
-  final Map<Listenable, VoidCallback> _listenerCallbacks = {};
   final _sharedProviders = <ProviderBase>{};
 
   bool _mounted = true;
@@ -30,13 +29,9 @@ class StoreImpl implements UnmountableStore {
       _instances[provider] = instance;
       if (shared) {
         _sharedProviders.add(provider);
-        _log(
-          'Provider "${provider.runtimeType}" created shared instance of type "${instance.runtimeType}"',
-        );
+        _log('"${instance.runtimeType}" shared instance created');
       } else {
-        _log(
-          'Provider "${provider.runtimeType}" created bound instance of type "${instance.runtimeType}"',
-        );
+        _log('"${instance.runtimeType}" bound instance created');
       }
     }
     return instance as T;
@@ -55,11 +50,11 @@ class StoreImpl implements UnmountableStore {
       return;
     }
     final instance = _instances[provider];
-    provider.dispose(instance);
+    provider.dispose(this, instance);
     _instances.remove(provider);
     _watchers.remove(provider);
     _log(
-      'Provider "${provider.runtimeType}" disposed instance of type "${instance.runtimeType}"',
+      '"${instance.runtimeType}" instance disposed',
     );
   }
 
@@ -73,9 +68,8 @@ class StoreImpl implements UnmountableStore {
     if (watchers.add(scope)) {
       // 只在第一次添加时创建并存储回调
       callback() => _unbind(provider, scope);
-      _listenerCallbacks[scope] = callback;
       scope.addListener(callback);
-      _log('Provider "${provider.runtimeType}" bound to new lifecycle');
+      _log('"${provider.runtimeType}" bindWith new scope');
     }
     return _read(provider, false);
   }
@@ -86,15 +80,10 @@ class StoreImpl implements UnmountableStore {
     final watchers = _watchers[provider];
     if (watchers == null || watchers.isEmpty) return;
     if (watchers.remove(scope)) {
-      final callback = _listenerCallbacks.remove(scope);
-      if (callback != null) {
-        scope.removeListener(callback);
-        _log('Provider "${provider.runtimeType}" unbound from lifecycle');
-      }
       if (watchers.isEmpty) {
         _watchers.remove(provider);
         _log(
-          'Provider "${provider.runtimeType}" all lifecycles unbound, preparing to dispose',
+          '"${provider.runtimeType}" all scopes unbound',
         );
         _invalidate(provider);
       }
@@ -105,20 +94,12 @@ class StoreImpl implements UnmountableStore {
   void unmount() {
     if (!_mounted) return;
     _mounted = false;
-    _log('Store unmounting...');
-
-    for (final entry in _listenerCallbacks.entries) {
-      final disposeNotifier = entry.key;
-      final callback = entry.value;
-      disposeNotifier.removeListener(callback);
-    }
     _log('''
 Store unmounted:
 - Instances cleared: ${_instances.length}
 - Watchers cleared: ${_watchers.length}
 - Shared instances cleared: ${_sharedProviders.length}
 ''');
-    _listenerCallbacks.clear();
     _instances.clear();
     _watchers.clear();
     _sharedProviders.clear();

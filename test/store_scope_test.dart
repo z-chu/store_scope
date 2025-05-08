@@ -81,7 +81,7 @@ class TestProvider extends ProviderBase<String> {
   String create(Store store) => 'test';
 
   @override
-  void dispose(String instance) {}
+  void dispose(Store store, String instance) {}
 }
 
 class TestViewModel extends ViewModel {

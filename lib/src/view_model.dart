@@ -4,7 +4,6 @@ import 'package:store_scope/src/provider.dart' show Provider;
 import 'dispose_state_notifier.dart';
 import 'store.dart';
 import 'store_space.dart';
-import 'store_scope_config.dart';
 
 part 'arg_view_model_provider.dart';
 
@@ -23,7 +22,6 @@ abstract class ViewModel implements ScopeAware {
   @mustCallSuper
   void dispose() {
     _viewModelScope.dispose();
-    StoreScopeConfig.log('ViewModel $runtimeType disposed');
   }
 
   @protected

@@ -3,40 +3,37 @@ import 'package:flutter/foundation.dart' show nonVirtual;
 import 'dispose_state_notifier.dart';
 import 'store_space.dart';
 import 'store.dart';
-import 'store_scope_config.dart';
 part 'arg_provider.dart';
+part 'instance_scope.dart';
 
 abstract class ProviderBase<T> {
   T create(Store store);
 
-  void dispose(T instance);
+  void dispose(Store store, T instance);
 }
 
 abstract class Provider<T> extends ProviderBase<T> {
-  late final Map<T, DisposeStateNotifier> _disposeNotifiers =
-      Map<T, DisposeStateNotifier>.identity();
-
   @override
   @nonVirtual
   T create(Store store) {
-    var disposeStateNotifier = DisposeStateNotifier();
-    final instance = createInstance(StoreSpace(store, disposeStateNotifier));
-    _disposeNotifiers[instance] = disposeStateNotifier;
+    var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
+    var scope = DisposeStateNotifier();
+    final instance = createInstance(StoreSpace(store, scope));
+    instanceScopeManager.onInstanceCreated(instance, scope);
     return instance;
   }
 
   @override
   @nonVirtual
-  void dispose(T instance) {
-    StoreScopeConfig.log('$runtimeType dispose method called');
-    _disposeNotifiers[instance]?.dispose();
-    _disposeNotifiers.remove(instance);
+  void dispose(Store store, T instance) {
+    var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
+    instanceScopeManager.onInstanceDisposed(instance);
     disposeInstance(instance);
   }
 
   T createInstance(StoreSpace space);
 
-  void disposeInstance(T instance){}
+  void disposeInstance(T instance) {}
 
   static Provider<T> from<T>(
     T Function(StoreSpace space) creator, {
@@ -81,13 +78,11 @@ abstract class Provider<T> extends ProviderBase<T> {
     T Function(StoreSpace space, A, B, C, D, E) creator, {
     Function(T instance)? disposer,
   }) => ArgProvider5(creator, disposer: disposer);
-  
 
   static ArgProvider6<T, A, B, C, D, E, F> withArgument6<T, A, B, C, D, E, F>(
     T Function(StoreSpace space, A, B, C, D, E, F) creator, {
     Function(T instance)? disposer,
   }) => ArgProvider6(creator, disposer: disposer);
-
 }
 
 class _CallbackProvider<T> extends Provider<T> {

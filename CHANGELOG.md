@@ -1,3 +1,7 @@
+## 0.0.7
+
+* Add instance scope manager to optimize instance creation and destruction process
+
 ## 0.0.6
 
 * Provide a default implementation for the disposeViewModel method
