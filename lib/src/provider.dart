@@ -36,7 +36,7 @@ abstract class Provider<T> extends ProviderBase<T> {
 
   T createInstance(StoreSpace space);
 
-  void disposeInstance(T instance);
+  void disposeInstance(T instance){}
 
   static Provider<T> from<T>(
     T Function(StoreSpace space) creator, {
