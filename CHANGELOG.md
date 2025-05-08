@@ -1,3 +1,7 @@
+## 0.0.6
+
+* Provide a default implementation for the disposeViewModel method
+
 ## 0.0.5
 
 * Support passing in parameters when creating a provider

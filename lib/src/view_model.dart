@@ -74,7 +74,7 @@ abstract class ViewModelProviderBase<T extends ViewModel> extends Provider<T> {
 
   T createViewModel(StoreSpace space);
 
-  void disposeViewModel(T instance);
+  void disposeViewModel(T instance) {}
 }
 
 class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
