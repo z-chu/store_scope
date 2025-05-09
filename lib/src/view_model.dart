@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:equatable/equatable.dart';
 import 'package:store_scope/src/provider.dart' show Provider;
 
 import 'dispose_state_notifier.dart';
@@ -91,52 +92,84 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     disposer?.call(instance);
   }
 
-  static ArgViewModelProvider<T, A> withArgument<T extends ViewModel, A>(
+  static ArgVmProviderFactory<T, A> withArgument<T extends ViewModel, A>(
     T Function(StoreSpace space, A arg) creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg)? equatableProps,
   }) {
-    return ArgViewModelProvider(creator, disposer: disposer);
+    return ArgVmProviderFactory(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 
-  static ArgViewModelProvider2<T, A, B>
+  static ArgVmProviderFactory2<T, A, B>
   withArgument2<T extends ViewModel, A, B>(
     T Function(StoreSpace space, A arg1, B arg2) creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg1, B arg2)? equatableProps,
   }) {
-    return ArgViewModelProvider2(creator, disposer: disposer);
+    return ArgVmProviderFactory2(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 
-  static ArgViewModelProvider3<T, A, B, C>
+  static ArgVmProviderFactory3<T, A, B, C>
   withArgument3<T extends ViewModel, A, B, C>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3) creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg1, B arg2, C arg3)? equatableProps,
   }) {
-    return ArgViewModelProvider3(creator, disposer: disposer);
+    return ArgVmProviderFactory3(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 
-  static ArgViewModelProvider4<T, A, B, C, D>
+  static ArgVmProviderFactory4<T, A, B, C, D>
   withArgument4<T extends ViewModel, A, B, C, D>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4) creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4)? equatableProps,
   }) {
-    return ArgViewModelProvider4(creator, disposer: disposer);
+    return ArgVmProviderFactory4(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 
-  static ArgViewModelProvider5<T, A, B, C, D, E>
+  static ArgVmProviderFactory5<T, A, B, C, D, E>
   withArgument5<T extends ViewModel, A, B, C, D, E>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4, E arg5)
     creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5)?
+    equatableProps,
   }) {
-    return ArgViewModelProvider5(creator, disposer: disposer);
+    return ArgVmProviderFactory5(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 
-  static ArgViewModelProvider6<T, A, B, C, D, E, F>
+  static ArgVmProviderFactory6<T, A, B, C, D, E, F>
   withArgument6<T extends ViewModel, A, B, C, D, E, F>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)
     creator, {
     void Function(T instance)? disposer,
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)?
+    equatableProps,
   }) {
-    return ArgViewModelProvider6(creator, disposer: disposer);
+    return ArgVmProviderFactory6(
+      creator,
+      disposer: disposer,
+      equatableProps: equatableProps,
+    );
   }
 }

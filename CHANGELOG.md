@@ -1,3 +1,8 @@
+
+## 0.0.8
+
+* Refactor ArgProvider and ArgViewModelProvider to support custom equality
+
 ## 0.0.7
 
 * Add instance scope manager to optimize instance creation and destruction process

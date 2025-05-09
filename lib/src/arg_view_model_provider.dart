@@ -1,9 +1,9 @@
 part of 'view_model.dart';
 
-abstract class _BaseArgViewModelProvider<T extends ViewModel> {
+abstract class _BaseArgVmProviderFactory<T extends ViewModel> {
   final void Function(T instance)? _disposer;
 
-  const _BaseArgViewModelProvider({Function(T instance)? disposer})
+  const _BaseArgVmProviderFactory({Function(T instance)? disposer})
     : _disposer = disposer;
 
   void disposeViewModel(T instance) {
@@ -11,17 +11,20 @@ abstract class _BaseArgViewModelProvider<T extends ViewModel> {
   }
 }
 
-class ArgViewModelProvider<T extends ViewModel, A>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory<T extends ViewModel, A>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A) _creator;
+  final List<Object?> Function(A arg)? _equatableProps;
 
-  const ArgViewModelProvider(
+  const ArgVmProviderFactory(
     T Function(StoreSpace space, A) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg)? equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(A arg) {
-    return _InstantiableArgViewModelProvider._(this, arg);
+    return _ArgViewModelProvider(this, arg);
   }
 
   T createViewModel(StoreSpace space, A arg) {
@@ -29,17 +32,20 @@ class ArgViewModelProvider<T extends ViewModel, A>
   }
 }
 
-class ArgViewModelProvider2<T extends ViewModel, A, B>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory2<T extends ViewModel, A, B>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A, B) _creator;
+  final List<Object?> Function(A arg1, B arg2)? _equatableProps;
 
-  const ArgViewModelProvider2(
+  const ArgVmProviderFactory2(
     T Function(StoreSpace space, A, B) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg1, B arg2)? equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(A arg1, B arg2) {
-    return _InstantiableArgViewModelProvider2._(this, arg1, arg2);
+    return _ArgViewModelProvider2(this, arg1, arg2);
   }
 
   T createViewModel(StoreSpace space, A arg1, B arg2) {
@@ -47,17 +53,20 @@ class ArgViewModelProvider2<T extends ViewModel, A, B>
   }
 }
 
-class ArgViewModelProvider3<T extends ViewModel, A, B, C>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory3<T extends ViewModel, A, B, C>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A, B, C) _creator;
+  final List<Object?> Function(A arg1, B arg2, C arg3)? _equatableProps;
 
-  const ArgViewModelProvider3(
+  const ArgVmProviderFactory3(
     T Function(StoreSpace space, A, B, C) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg1, B arg2, C arg3)? equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(A arg1, B arg2, C arg3) {
-    return _InstantiableArgViewModelProvider3._(this, arg1, arg2, arg3);
+    return _ArgViewModelProvider3(this, arg1, arg2, arg3);
   }
 
   T createViewModel(StoreSpace space, A arg1, B arg2, C arg3) {
@@ -65,17 +74,20 @@ class ArgViewModelProvider3<T extends ViewModel, A, B, C>
   }
 }
 
-class ArgViewModelProvider4<T extends ViewModel, A, B, C, D>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory4<T extends ViewModel, A, B, C, D>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A, B, C, D) _creator;
+  final List<Object?> Function(A arg1, B arg2, C arg3, D arg4)? _equatableProps;
 
-  const ArgViewModelProvider4(
+  const ArgVmProviderFactory4(
     T Function(StoreSpace space, A, B, C, D) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4)? equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(A arg1, B arg2, C arg3, D arg4) {
-    return _InstantiableArgViewModelProvider4._(this, arg1, arg2, arg3, arg4);
+    return _ArgViewModelProvider4(this, arg1, arg2, arg3, arg4);
   }
 
   T createViewModel(StoreSpace space, A arg1, B arg2, C arg3, D arg4) {
@@ -83,24 +95,22 @@ class ArgViewModelProvider4<T extends ViewModel, A, B, C, D>
   }
 }
 
-class ArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory5<T extends ViewModel, A, B, C, D, E>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A, B, C, D, E) _creator;
+  final List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5)?
+  _equatableProps;
 
-  const ArgViewModelProvider5(
+  const ArgVmProviderFactory5(
     T Function(StoreSpace space, A, B, C, D, E) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5)?
+    equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(A arg1, B arg2, C arg3, D arg4, E arg5) {
-    return _InstantiableArgViewModelProvider5._(
-      this,
-      arg1,
-      arg2,
-      arg3,
-      arg4,
-      arg5,
-    );
+    return _ArgViewModelProvider5(this, arg1, arg2, arg3, arg4, arg5);
   }
 
   T createViewModel(StoreSpace space, A arg1, B arg2, C arg3, D arg4, E arg5) {
@@ -108,14 +118,19 @@ class ArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
   }
 }
 
-class ArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
-    extends _BaseArgViewModelProvider<T> {
+class ArgVmProviderFactory6<T extends ViewModel, A, B, C, D, E, F>
+    extends _BaseArgVmProviderFactory<T> {
   final T Function(StoreSpace space, A, B, C, D, E, F) _creator;
+  final List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)?
+  _equatableProps;
 
-  const ArgViewModelProvider6(
+  const ArgVmProviderFactory6(
     T Function(StoreSpace space, A, B, C, D, E, F) creator, {
     super.disposer,
-  }) : _creator = creator;
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)?
+    equatableProps,
+  }) : _creator = creator,
+       _equatableProps = equatableProps;
 
   ViewModelProviderBase<T> call(
     A arg1,
@@ -125,15 +140,7 @@ class ArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
     E arg5,
     F arg6,
   ) {
-    return _InstantiableArgViewModelProvider6._(
-      this,
-      arg1,
-      arg2,
-      arg3,
-      arg4,
-      arg5,
-      arg6,
-    );
+    return _ArgViewModelProvider6(this, arg1, arg2, arg3, arg4, arg5, arg6);
   }
 
   T createViewModel(
@@ -149,120 +156,107 @@ class ArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
   }
 }
 
-abstract class _BaseInstantiableArgViewModelProvider<T extends ViewModel>
+abstract class _BaseArgViewModelProvider<T extends ViewModel>
     extends ViewModelProviderBase<T> {
   @override
   void disposeViewModel(T instance) {
-    getArgProvider().disposeViewModel(instance);
+    getProviderFactory().disposeViewModel(instance);
   }
 
-  _BaseArgViewModelProvider<T> getArgProvider();
+  _BaseArgVmProviderFactory<T> getProviderFactory();
 }
 
-class _InstantiableArgViewModelProvider<T extends ViewModel, A>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider._(this._argProvider, this._arg);
-  final ArgViewModelProvider<T, A> _argProvider;
+class _ArgViewModelProvider<T extends ViewModel, A>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider(this._argProviderFactory, this._arg);
+  final ArgVmProviderFactory<T, A> _argProviderFactory;
   final A _arg;
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(space, _arg);
+    return _argProviderFactory.createViewModel(space, _arg);
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg == other._arg;
-
-  @override
-  int get hashCode => _argProvider.hashCode ^ _arg.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [_argProviderFactory, ...equatableProps.call(_arg)]
+        : [_argProviderFactory, _arg];
+  }
 }
 
-class _InstantiableArgViewModelProvider2<T extends ViewModel, A, B>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider2._(
-    this._argProvider,
-    this._arg1,
-    this._arg2,
-  );
-  final ArgViewModelProvider2<T, A, B> _argProvider;
+class _ArgViewModelProvider2<T extends ViewModel, A, B>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider2(this._argProviderFactory, this._arg1, this._arg2);
+  final ArgVmProviderFactory2<T, A, B> _argProviderFactory;
   final A _arg1;
   final B _arg2;
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(space, _arg1, _arg2);
+    return _argProviderFactory.createViewModel(space, _arg1, _arg2);
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider2 &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg1 == other._arg1 &&
-          _arg2 == other._arg2;
-
-  @override
-  int get hashCode => _argProvider.hashCode ^ _arg1.hashCode ^ _arg2.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [_argProviderFactory, ...equatableProps.call(_arg1, _arg2)]
+        : [_argProviderFactory, _arg1, _arg2];
+  }
 }
 
-class _InstantiableArgViewModelProvider3<T extends ViewModel, A, B, C>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider3._(
-    this._argProvider,
+class _ArgViewModelProvider3<T extends ViewModel, A, B, C>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider3(
+    this._argProviderFactory,
     this._arg1,
     this._arg2,
     this._arg3,
   );
-  final ArgViewModelProvider3<T, A, B, C> _argProvider;
+  final ArgVmProviderFactory3<T, A, B, C> _argProviderFactory;
   final A _arg1;
   final B _arg2;
   final C _arg3;
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(space, _arg1, _arg2, _arg3);
+    return _argProviderFactory.createViewModel(space, _arg1, _arg2, _arg3);
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider3 &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg1 == other._arg1 &&
-          _arg2 == other._arg2 &&
-          _arg3 == other._arg3;
-
-  @override
-  int get hashCode =>
-      _argProvider.hashCode ^ _arg1.hashCode ^ _arg2.hashCode ^ _arg3.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [_argProviderFactory, ...equatableProps.call(_arg1, _arg2, _arg3)]
+        : [_argProviderFactory, _arg1, _arg2, _arg3];
+  }
 }
 
-class _InstantiableArgViewModelProvider4<T extends ViewModel, A, B, C, D>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider4._(
-    this._argProvider,
+class _ArgViewModelProvider4<T extends ViewModel, A, B, C, D>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider4(
+    this._argProviderFactory,
     this._arg1,
     this._arg2,
     this._arg3,
     this._arg4,
   );
-  final ArgViewModelProvider4<T, A, B, C, D> _argProvider;
+  final ArgVmProviderFactory4<T, A, B, C, D> _argProviderFactory;
   final A _arg1;
   final B _arg2;
   final C _arg3;
@@ -270,43 +264,33 @@ class _InstantiableArgViewModelProvider4<T extends ViewModel, A, B, C, D>
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(space, _arg1, _arg2, _arg3, _arg4);
+    return _argProviderFactory.createViewModel(space, _arg1, _arg2, _arg3, _arg4);
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider4 &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg1 == other._arg1 &&
-          _arg2 == other._arg2 &&
-          _arg3 == other._arg3 &&
-          _arg4 == other._arg4;
-
-  @override
-  int get hashCode =>
-      _argProvider.hashCode ^
-      _arg1.hashCode ^
-      _arg2.hashCode ^
-      _arg3.hashCode ^
-      _arg4.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [_argProviderFactory, ...equatableProps.call(_arg1, _arg2, _arg3, _arg4)]
+        : [_argProviderFactory, _arg1, _arg2, _arg3, _arg4];
+  }
 }
 
-class _InstantiableArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider5._(
-    this._argProvider,
+class _ArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider5(
+    this._argProviderFactory,
     this._arg1,
     this._arg2,
     this._arg3,
     this._arg4,
     this._arg5,
   );
-  final ArgViewModelProvider5<T, A, B, C, D, E> _argProvider;
+  final ArgVmProviderFactory5<T, A, B, C, D, E> _argProviderFactory;
   final A _arg1;
   final B _arg2;
   final C _arg3;
@@ -315,7 +299,7 @@ class _InstantiableArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(
+    return _argProviderFactory.createViewModel(
       space,
       _arg1,
       _arg2,
@@ -326,34 +310,25 @@ class _InstantiableArgViewModelProvider5<T extends ViewModel, A, B, C, D, E>
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider5 &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg1 == other._arg1 &&
-          _arg2 == other._arg2 &&
-          _arg3 == other._arg3 &&
-          _arg4 == other._arg4 &&
-          _arg5 == other._arg5;
-
-  @override
-  int get hashCode =>
-      _argProvider.hashCode ^
-      _arg1.hashCode ^
-      _arg2.hashCode ^
-      _arg3.hashCode ^
-      _arg4.hashCode ^
-      _arg5.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [
+          _argProviderFactory,
+          ...equatableProps.call(_arg1, _arg2, _arg3, _arg4, _arg5),
+        ]
+        : [_argProviderFactory, _arg1, _arg2, _arg3, _arg4, _arg5];
+  }
 }
 
-class _InstantiableArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
-    extends _BaseInstantiableArgViewModelProvider<T> {
-  _InstantiableArgViewModelProvider6._(
-    this._argProvider,
+class _ArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
+    extends _BaseArgViewModelProvider<T>
+    with EquatableMixin {
+  _ArgViewModelProvider6(
+    this._argProviderFactory,
     this._arg1,
     this._arg2,
     this._arg3,
@@ -361,7 +336,7 @@ class _InstantiableArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
     this._arg5,
     this._arg6,
   );
-  final ArgViewModelProvider6<T, A, B, C, D, E, F> _argProvider;
+  final ArgVmProviderFactory6<T, A, B, C, D, E, F> _argProviderFactory;
   final A _arg1;
   final B _arg2;
   final C _arg3;
@@ -371,7 +346,7 @@ class _InstantiableArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
 
   @override
   T createViewModel(StoreSpace space) {
-    return _argProvider.createViewModel(
+    return _argProviderFactory.createViewModel(
       space,
       _arg1,
       _arg2,
@@ -383,28 +358,16 @@ class _InstantiableArgViewModelProvider6<T extends ViewModel, A, B, C, D, E, F>
   }
 
   @override
-  _BaseArgViewModelProvider<T> getArgProvider() => _argProvider;
+  _BaseArgVmProviderFactory<T> getProviderFactory() => _argProviderFactory;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is _InstantiableArgViewModelProvider6 &&
-          runtimeType == other.runtimeType &&
-          _argProvider == other._argProvider &&
-          _arg1 == other._arg1 &&
-          _arg2 == other._arg2 &&
-          _arg3 == other._arg3 &&
-          _arg4 == other._arg4 &&
-          _arg5 == other._arg5 &&
-          _arg6 == other._arg6;
-
-  @override
-  int get hashCode =>
-      _argProvider.hashCode ^
-      _arg1.hashCode ^
-      _arg2.hashCode ^
-      _arg3.hashCode ^
-      _arg4.hashCode ^
-      _arg5.hashCode ^
-      _arg6.hashCode;
+  List<Object?> get props {
+    var equatableProps = _argProviderFactory._equatableProps;
+    return equatableProps != null
+        ? [
+          _argProviderFactory,
+          ...equatableProps.call(_arg1, _arg2, _arg3, _arg4, _arg5, _arg6),
+        ]
+        : [_argProviderFactory, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6];
+  }
 }

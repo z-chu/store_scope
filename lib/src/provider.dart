@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show nonVirtual;
+import 'package:equatable/equatable.dart';
 
 import 'dispose_state_notifier.dart';
 import 'store_space.dart';
@@ -40,7 +41,7 @@ abstract class Provider<T> extends ProviderBase<T> {
     void Function(T instance)? disposer,
   }) => _CallbackProvider(creator: creator, disposer: disposer);
 
-  /// Creates an [ArgProvider] for values that require an argument at creation time.
+  /// Creates an [ArgProviderFactory] for values that require an argument at creation time.
   ///
   /// Example:
   /// ```dart
@@ -54,35 +55,68 @@ abstract class Provider<T> extends ProviderBase<T> {
   /// userProvider(42)==userProvider(42) // true
   /// userProvider(0)==userProvider(1) // false
   /// ```
-  static ArgProvider<T, A> withArgument<T, A>(
+  static ArgProviderFactory<T, A> withArgument<T, A>(
     T Function(StoreSpace space, A) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider(creator, disposer: disposer);
+    List<Object?> Function(A arg)? equatableProps,
+  }) => ArgProviderFactory(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 
-  static ArgProvider2<T, A, B> withArgument2<T, A, B>(
+  static ArgProviderFactory2<T, A, B> withArgument2<T, A, B>(
     T Function(StoreSpace space, A, B) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider2(creator, disposer: disposer);
+    List<Object?> Function(A arg1, B arg2)? equatableProps,
+  }) => ArgProviderFactory2(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 
-  static ArgProvider3<T, A, B, C> withArgument3<T, A, B, C>(
+  static ArgProviderFactory3<T, A, B, C> withArgument3<T, A, B, C>(
     T Function(StoreSpace space, A, B, C) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider3(creator, disposer: disposer);
+    List<Object?> Function(A arg1, B arg2, C arg3)? equatableProps,
+  }) => ArgProviderFactory3(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 
-  static ArgProvider4<T, A, B, C, D> withArgument4<T, A, B, C, D>(
+  static ArgProviderFactory4<T, A, B, C, D> withArgument4<T, A, B, C, D>(
     T Function(StoreSpace space, A, B, C, D) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider4(creator, disposer: disposer);
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4)? equatableProps,
+  }) => ArgProviderFactory4(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 
-  static ArgProvider5<T, A, B, C, D, E> withArgument5<T, A, B, C, D, E>(
+  static ArgProviderFactory5<T, A, B, C, D, E> withArgument5<T, A, B, C, D, E>(
     T Function(StoreSpace space, A, B, C, D, E) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider5(creator, disposer: disposer);
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5)?
+    equatableProps,
+  }) => ArgProviderFactory5(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 
-  static ArgProvider6<T, A, B, C, D, E, F> withArgument6<T, A, B, C, D, E, F>(
+  static ArgProviderFactory6<T, A, B, C, D, E, F>
+  withArgument6<T, A, B, C, D, E, F>(
     T Function(StoreSpace space, A, B, C, D, E, F) creator, {
     Function(T instance)? disposer,
-  }) => ArgProvider6(creator, disposer: disposer);
+    List<Object?> Function(A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)?
+    equatableProps,
+  }) => ArgProviderFactory6(
+    creator,
+    disposer: disposer,
+    equatableProps: equatableProps,
+  );
 }
 
 class _CallbackProvider<T> extends Provider<T> {
