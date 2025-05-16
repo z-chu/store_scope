@@ -4,11 +4,12 @@ import 'package:store_scope/src/provider.dart' show Provider;
 
 import 'dispose_state_notifier.dart';
 import 'store.dart';
+import 'store_scope_config.dart';
 import 'store_space.dart';
 
 part 'arg_view_model_provider.dart';
 
-abstract class ViewModel implements ScopeAware {
+abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   final _viewModelScope = DisposeStateNotifier();
   final Map<String, VoidCallback> _keyToCloseables = {};
   final Set<VoidCallback> _closeables = {};
@@ -20,28 +21,71 @@ abstract class ViewModel implements ScopeAware {
 
   void init() {}
 
+  @override
   @mustCallSuper
   void dispose() {
+    super.dispose();
+    for (var closeable in _closeables) {
+      _closeWithException(closeable);
+    }
+    var keyedCloseables = _keyToCloseables.values;
+    for (var closeable in keyedCloseables) {
+      _closeWithException(closeable);
+    }
+    _keyToCloseables.clear();
+    _closeables.clear();
     _viewModelScope.dispose();
   }
 
+  /// Adds a closeable resource to be disposed when the ViewModel is disposed.
+  ///
+  /// The [closeable] callback will be executed when:
+  /// - The ViewModel is disposed
+  /// - The ViewModel is already disposed (immediately)
+  ///
+  /// If the same [closeable] is added multiple times, it will only be executed once.
+  ///
+  /// Example:
+  /// ```dart
+  /// addCloseable(() {
+  ///   // Clean up resources
+  ///   subscription.cancel();
+  /// });
+  /// ```
   @protected
   void addCloseable(VoidCallback closeable) {
     if (disposed) {
-      closeable();
+      _closeWithException(closeable);
       return;
     }
     if (_closeables.contains(closeable)) {
       return;
     }
     _closeables.add(closeable);
-    _viewModelScope.addListener(closeable);
   }
 
+  /// Adds a keyed closeable resource to be disposed when the ViewModel is disposed.
+  ///
+  /// The [closeable] callback will be executed when:
+  /// - The ViewModel is disposed
+  /// - The ViewModel is already disposed (immediately)
+  /// - A new closeable is added with the same [key]
+  ///
+  /// If a closeable with the same [key] already exists:
+  /// - The old closeable will be executed immediately
+  /// - The new closeable will replace the old one
+  ///
+  /// Example:
+  /// ```dart
+  /// addKeyedCloseable('subscription', () {
+  ///   // Clean up resources
+  ///   subscription.cancel();
+  /// });
+  /// ```
   @protected
   void addKeyedCloseable(String key, VoidCallback closeable) {
     if (disposed) {
-      closeable();
+      _closeWithException(closeable);
       return;
     }
     var oldCloseable = _keyToCloseables[key];
@@ -51,7 +95,25 @@ abstract class ViewModel implements ScopeAware {
       oldCloseable.call();
     }
     _keyToCloseables[key] = closeable;
-    _viewModelScope.addListener(closeable);
+  }
+
+  void _closeWithException(VoidCallback closeable) {
+    try {
+      closeable();
+    } catch (error, stackTrace) {
+      if (StoreScopeConfig.throwOnCloseError) {
+        throw Exception(
+          'Failed to close $error\n'
+          'Stack trace:\n$stackTrace',
+        );
+      } else {
+        StoreScopeConfig.log(
+          'Failed to close $error\n'
+          'Stack trace:\n$stackTrace',
+          isError: true,
+        );
+      }
+    }
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 
 class StoreScopeConfig {
   static bool isLogEnable = kDebugMode;
+  static bool throwOnCloseError = kDebugMode;
   static LogWriterCallback log = defaultLogWriterCallback;
 }
 

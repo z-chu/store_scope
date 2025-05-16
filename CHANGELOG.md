@@ -1,3 +1,6 @@
+## 0.0.9
+
+* Make viewModel inherit from ChangeNotifier to optimize resource destruction processing
 
 ## 0.0.8
 
