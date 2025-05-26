@@ -48,50 +48,72 @@ abstract class Store {
   /// ```
   T shared<T>(ProviderBase<T> provider);
 
-  /// Binds a provider to a disposable widget or object.
-  /// The provider instance will be tracked and cleaned up when the disposeNotifier signals disposal.
-  /// This method is used to create scoped provider instances that are tied to widget lifecycle.
+  /// Binds a provider to a [Listenable] `scope`.
+  ///
+  /// The provider instance will be created if it doesn't exist, and then tracked.
+  /// It will be automatically disposed when the `scope` notifies its listeners
+  /// (e.g., when a `ChangeNotifier` calls `notifyListeners` or `dispose`, or a
+  /// `DisposeStateNotifier` is disposed).
+  ///
+  /// This method is typically used to create provider instances whose lifecycles
+  /// are tied to another object's lifecycle, such as a widget or a `ViewModel`.
   ///
   /// Example:
   /// ```dart
-  /// class _MyWidgetState extends State<MyWidget> with DisposeStateAwareMixin {
-  ///   Counter get counter => context.bindWith(counterProvider, this);
-  ///   // Counter instance will be cleaned up when widget is disposed
-  /// }
+  /// // Assuming 'myViewModel' has a 'scope' property that is a Listenable (e.g., DisposeStateNotifier)
+  /// // And 'userProvider' is a Provider.
+  /// final user = store.bindWith(userProvider, myViewModel.scope);
+  ///
+  /// // 'user' instance will be disposed when myViewModel.scope notifies disposal.
   /// ```
   T bindWith<T>(ProviderBase<T> provider, Listenable scope);
 }
 
 /// An interface for objects that expose their own lifecycle scope.
 ///
-/// Implement this interface to allow external listeners to observe the lifecycle
-/// of the object via the [scope] property. When the scope becomes invalid (for example,
-/// when the object is disposed), all listeners will be notified.
+/// Implement this interface to allow the object's lifecycle to be observed externally
+/// via the [scope] property. When the scope becomes invalid (e.g., the object
+/// is disposed), listeners of the [scope] will be notified.
 ///
-/// It is recommended to use [DisposeStateNotifier] to implement this interface,
-/// as it provides a convenient way to manage and notify disposal state.
+/// Using [DisposeStateNotifier] is a common way to implement this interface,
+/// providing a straightforward mechanism for managing and signaling disposal.
 abstract class ScopeAware {
-  /// A [Listenable] that notifies listeners when this object's scope becomes invalid,
-  /// typically when the object is disposed.
+  /// A [Listenable] that notifies listeners when this object's lifecycle scope
+  /// ends, typically signifying that the object has been disposed.
   Listenable get scope;
 }
 
-
-/// Interface for objects that own a Store instance.
-/// Provides access to the store and ability to unmount it.
+/// Defines an entity that owns and manages a [Store] instance.
+///
+/// This interface provides access to the [store] and a method to [unmountStore],
+/// allowing for the controlled teardown and cleanup of the store and its resources.
 abstract class StoreOwner {
+  /// The [Store] instance managed by this owner.
   Store get store;
+
+  /// Unmounts the store, performing necessary cleanup operations.
+  /// This typically involves disposing of all provider instances within the store.
   void unmountStore();
 }
 
-/// A store that can be unmounted, typically used for cleanup operations.
+/// An extension of [Store] that includes an explicit [unmount] method.
+///
+/// This is used for stores that require a formal teardown process,
+/// ensuring all resources are released correctly.
 abstract class UnmountableStore extends Store {
+  /// Unmounts the store, disposing all its provider instances and resources.
   void unmount();
 }
 
+/// Default implementation of [StoreOwner].
+///
+/// Manages an [UnmountableStore] and facilitates its unmounting.
+/// This class is not typically used directly by consumers of the library
+/// but serves as an internal concrete implementation.
 class StoreOwnerImpl extends StoreOwner {
   final UnmountableStore _store;
 
+  /// Creates a [StoreOwnerImpl] with the given [UnmountableStore].
   StoreOwnerImpl(this._store);
 
   @override
@@ -101,8 +123,18 @@ class StoreOwnerImpl extends StoreOwner {
   void unmountStore() => _store.unmount();
 }
 
-
+/// Extension methods for [Store] to provide convenient ways to bind providers.
 extension StoreExtension on Store {
+  /// Binds a [provider] to the lifecycle of a [ScopeAware] object.
+  ///
+  /// This is a convenience method that calls [Store.bindWith], using the `scope`
+  /// provided by the [scopeAware] object. The provider instance will be disposed
+  /// when `scopeAware.scope` notifies its listeners.
+  ///
+  /// - [provider]: The [ProviderBase] to bind.
+  /// - [scopeAware]: The [ScopeAware] object whose lifecycle will control the provider instance.
+  ///
+  /// Returns the instance of type [T] from the provider.
   T bindWithScoped<T>(ProviderBase<T> provider, ScopeAware scopeAware) {
     return bindWith(provider, scopeAware.scope);
   }

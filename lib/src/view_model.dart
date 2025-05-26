@@ -9,6 +9,24 @@ import 'store_space.dart';
 
 part 'arg_view_model_provider.dart';
 
+/// A base class for ViewModels, integrating with [ChangeNotifier] for UI updates
+/// and [ScopeAware] for lifecycle management.
+///
+/// ViewModels are responsible for holding and managing UI-related data and business logic.
+/// They notify listeners (typically UI widgets) when data changes, and they can manage
+/// resources that need to be cleaned up when the ViewModel is no longer in use.
+///
+/// Lifecycle:
+/// 1. **Creation**: Instantiated by a [ViewModelProvider].
+/// 2. **Initialization**: The [init] method is called after creation.
+/// 3. **Usage**: Bound to UI components, providing data and handling events.
+/// 4. **Disposal**: The [dispose] method is called to clean up resources.
+///
+/// Resource Management:
+/// - Use [addCloseable] and [addKeyedCloseable] to register callbacks for resource cleanup
+///   during the [dispose] phase.
+/// - The ViewModel's [scope] (from [ScopeAware]) is tied to its lifecycle and will
+///   notify listeners upon disposal.
 abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   final _viewModelScope = DisposeStateNotifier();
   final Map<String, VoidCallback> _keyToCloseables = {};
@@ -17,19 +35,22 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   @override
   Listenable get scope => _viewModelScope;
 
+  /// Returns `true` if this ViewModel has been disposed.
+  /// Once disposed, a ViewModel should not be used anymore.
   bool get disposed => _viewModelScope.disposed;
 
+  /// Called once after the ViewModel is created by a [ViewModelProvider].
+  ///
+  /// Override this method to perform initialization tasks such as setting up
+  /// listeners, fetching initial data, etc.
   void init() {}
 
   @override
   @mustCallSuper
   void dispose() {
     super.dispose();
-    for (var closeable in _closeables) {
-      _closeWithException(closeable);
-    }
-    var keyedCloseables = _keyToCloseables.values;
-    for (var closeable in keyedCloseables) {
+    final allCloseables = [..._closeables, ..._keyToCloseables.values];
+    for (var closeable in allCloseables) {
       _closeWithException(closeable);
     }
     _keyToCloseables.clear();
@@ -90,7 +111,6 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
     }
     var oldCloseable = _keyToCloseables[key];
     if (oldCloseable != null) {
-      if (oldCloseable == closeable) return;
       _viewModelScope.removeListener(oldCloseable);
       oldCloseable.call();
     }
@@ -103,12 +123,12 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
     } catch (error, stackTrace) {
       if (StoreScopeConfig.throwOnCloseError) {
         throw Exception(
-          'Failed to close $error\n'
+          'Failed to close $error in $runtimeType\n'
           'Stack trace:\n$stackTrace',
         );
       } else {
         StoreScopeConfig.log(
-          'Failed to close $error\n'
+          'Failed to close $error in $runtimeType\n'
           'Stack trace:\n$stackTrace',
           isError: true,
         );
@@ -117,6 +137,14 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   }
 }
 
+/// An abstract base class for providing [ViewModel] instances.
+///
+/// It extends [Provider] and handles the basic lifecycle of a [ViewModel],
+/// including calling [ViewModel.init] after creation and [ViewModel.dispose]
+/// during its own disposal.
+///
+/// Subclasses must implement [createViewModel] and can optionally implement
+/// [disposeViewModel] for custom disposal logic beyond what the ViewModel itself handles.
 abstract class ViewModelProviderBase<T extends ViewModel> extends Provider<T> {
   @override
   @nonVirtual
@@ -133,15 +161,44 @@ abstract class ViewModelProviderBase<T extends ViewModel> extends Provider<T> {
     disposeViewModel(instance);
   }
 
+  /// Creates an instance of the [ViewModel].
+  ///
+  /// This method is called by [createInstance] after which [ViewModel.init]
+  /// will be automatically invoked on the created ViewModel.
+  ///
+  /// - [space]: The [StoreSpace] providing access to the [Store] and the
+  ///            ViewModel's own lifecycle [Listenable] scope.
+  /// Returns a new instance of the ViewModel.
   T createViewModel(StoreSpace space);
 
+  /// Called when the [ViewModelProvider] is disposed and the [instance] of the
+  /// [ViewModel] it created is about to be cleaned up.
+  ///
+  /// This method is called after [ViewModel.dispose]. Override this to perform
+  /// any additional cleanup specific to the provider that isn't handled by the
+  /// ViewModel's own [dispose] method.
+  ///
+  /// - [instance]: The ViewModel instance that was created by this provider.
   void disposeViewModel(T instance) {}
 }
 
+/// A concrete implementation of [ViewModelProviderBase] that uses a creator
+/// function to instantiate the [ViewModel].
+///
+/// - [T]: The type of the [ViewModel].
 class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
+  /// A function that creates an instance of the [ViewModel].
   final T Function(StoreSpace space) creator;
+
+  /// An optional function that is called when the [ViewModel] instance is disposed.
+  /// This is called after [ViewModel.dispose].
   final void Function(T instance)? disposer;
 
+  /// Creates a [ViewModelProvider].
+  ///
+  /// - [creator]: The function to create the [ViewModel] instance.
+  /// - [disposer]: An optional function for additional cleanup when the
+  ///               [ViewModel] is disposed. This is called after [ViewModel.dispose].
   ViewModelProvider(this.creator, {this.disposer});
 
   @override
@@ -154,6 +211,17 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     disposer?.call(instance);
   }
 
+  /// Creates an [ArgVmProviderFactory] for [ViewModel]s that require one argument for creation.
+  ///
+  /// This factory allows creating providers that depend on a runtime argument.
+  /// The returned factory can be called with the argument to get a specific [Provider] instance.
+  ///
+  /// - [T]: The type of the [ViewModel].
+  /// - [A]: The type of the argument.
+  /// - [creator]: A function that takes a [StoreSpace] and argument [A] to create the [ViewModel].
+  /// - [disposer]: Optional. A function to dispose the [ViewModel] instance.
+  /// - [equatableProps]: Optional. A function to generate props for `Equatable` from the argument,
+  ///   ensuring that providers created with equivalent arguments are treated as equal.
   static ArgVmProviderFactory<T, A> withArgument<T extends ViewModel, A>(
     T Function(StoreSpace space, A arg) creator, {
     void Function(T instance)? disposer,
@@ -166,6 +234,8 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     );
   }
 
+  /// Creates an [ArgVmProviderFactory2] for [ViewModel]s that require two arguments for creation.
+  /// See [withArgument] for more details.
   static ArgVmProviderFactory2<T, A, B>
   withArgument2<T extends ViewModel, A, B>(
     T Function(StoreSpace space, A arg1, B arg2) creator, {
@@ -179,6 +249,8 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     );
   }
 
+  /// Creates an [ArgVmProviderFactory3] for [ViewModel]s that require three arguments for creation.
+  /// See [withArgument] for more details.
   static ArgVmProviderFactory3<T, A, B, C>
   withArgument3<T extends ViewModel, A, B, C>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3) creator, {
@@ -192,6 +264,8 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     );
   }
 
+  /// Creates an [ArgVmProviderFactory4] for [ViewModel]s that require four arguments for creation.
+  /// See [withArgument] for more details.
   static ArgVmProviderFactory4<T, A, B, C, D>
   withArgument4<T extends ViewModel, A, B, C, D>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4) creator, {
@@ -205,6 +279,8 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     );
   }
 
+  /// Creates an [ArgVmProviderFactory5] for [ViewModel]s that require five arguments for creation.
+  /// See [withArgument] for more details.
   static ArgVmProviderFactory5<T, A, B, C, D, E>
   withArgument5<T extends ViewModel, A, B, C, D, E>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4, E arg5)
@@ -220,6 +296,8 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
     );
   }
 
+  /// Creates an [ArgVmProviderFactory6] for [ViewModel]s that require six arguments for creation.
+  /// See [withArgument] for more details.
   static ArgVmProviderFactory6<T, A, B, C, D, E, F>
   withArgument6<T extends ViewModel, A, B, C, D, E, F>(
     T Function(StoreSpace space, A arg1, B arg2, C arg3, D arg4, E arg5, F arg6)
