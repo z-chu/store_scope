@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'store.dart';
 
 part 'extensions.dart';
-part 'widgets.dart';
+part 'auto_store_widgets.dart';
 
 /// A widget that provides a [Store] implementation for the widget tree.
 ///

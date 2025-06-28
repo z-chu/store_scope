@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:store_scope/store_scope.dart';
 
-class NumberObj  {
+class NumberObj {
   final int number;
   NumberObj({required this.number});
 }
@@ -32,12 +32,15 @@ class CounterViewModel extends ViewModel {
   }
 }
 
-final numberProvider = Provider.withArgument((space,int number) {
+final numberProvider = Provider.withArgument((space, int number) {
   return NumberObj(number: number);
 });
-final counterProvider = ViewModelProvider.withArgument((space,int multiplyNumber) {
+final counterProvider = ViewModelProvider.withArgument((
+  space,
+  int multiplyNumber,
+) {
   final numberViewModel = space.bind(numberProvider(5));
-  return CounterViewModel(numberViewModel,multiplyNumber);
+  return CounterViewModel(numberViewModel, multiplyNumber);
 });
 void main() {
   runApp(const MyApp());
@@ -83,14 +86,13 @@ class StartPage extends StatelessWidget {
   }
 }
 
-class CounterPage extends StatelessWidget with ScopedStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
   CounterPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    CounterViewModel viewModel = context.store.bindWithScoped(
-      counterProvider(2),
-      this,
+  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+    CounterViewModel viewModel = space.bind(
+      counterProvider(2)
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Counter Example')),
@@ -142,7 +144,7 @@ class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   }
 }
 
-class StoreScopePage extends StoreScopeWidget {
+class StoreScopePage extends AutoStoreWidget {
   const StoreScopePage({super.key});
 
   @override

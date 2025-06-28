@@ -26,7 +26,10 @@ extension StoreContextExtension on BuildContext {
 
   Store? get storeOrNull {
     if (this is StoreOwner) {
-      return (this as StoreOwner).store;
+      var storeOwner = (this as StoreOwner);
+      if (storeOwner.store.mounted) {
+        return storeOwner.store;
+      }
     }
     final element =
         getElementForInheritedWidgetOfExactType<_InheritedStoreScope>();

@@ -27,9 +27,11 @@ abstract class Provider<T> extends ProviderBase<T> {
   @override
   @nonVirtual
   void dispose(Store store, T instance) {
-    var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
-    instanceScopeManager.onInstanceDisposed(instance);
-    disposeInstance(instance);
+    if (store.mounted) {
+      var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
+      instanceScopeManager.onInstanceDisposed(instance);
+      disposeInstance(instance);
+    }
   }
 
   T createInstance(StoreSpace space);

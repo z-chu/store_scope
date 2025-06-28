@@ -1,3 +1,6 @@
+## 0.0.10
+* Introducing AutoStoreWidget and AutoStoreStatefulWidget to simplify state management and automatically handle the Store lifecycle
+
 ## 0.0.9
 
 * Make viewModel inherit from ChangeNotifier to optimize resource destruction processing
