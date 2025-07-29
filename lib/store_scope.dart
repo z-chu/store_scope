@@ -10,3 +10,4 @@ export 'src/dispose_state_notifier.dart';
 export 'src/view_model.dart';
 export 'src/store_space.dart';
 export 'src/mixins.dart';
+export 'src/scoped_builder.dart';

@@ -91,28 +91,30 @@ class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
 
   @override
   Widget buildWithSpace(BuildContext context, StoreSpace space) {
-    CounterViewModel viewModel = space.bind(
-      counterProvider(2)
-    );
     return Scaffold(
       appBar: AppBar(title: const Text('Counter Example')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ValueListenableBuilder<int>(
-              valueListenable: viewModel.count,
-              builder: (context, count, child) {
-                return Text(
-                  'Count: $count',
-                  style: Theme.of(context).textTheme.headlineMedium,
+            ScopedBuilder(
+              builder: (context, space, child) {
+                CounterViewModel viewModel = space.bind(counterProvider(2));
+                return ValueListenableBuilder<int>(
+                  valueListenable: viewModel.count,
+                  builder: (context, count, child) {
+                    return Text(
+                      'Count: $count',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    );
+                  },
                 );
               },
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                viewModel.increment();
+                context.store.find(counterProvider(2))?.increment();
               },
               child: const Text('Increment'),
             ),
