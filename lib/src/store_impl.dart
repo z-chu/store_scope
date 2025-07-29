@@ -133,6 +133,7 @@ Store unmounted:
     final watchers = _scopeWatchers[provider];
     if (watchers == null || watchers.isEmpty) return;
     if (watchers.remove(scope)) {
+      _log('"${provider.runtimeType}" unbind a scope');
       final callback = _listenerCallbacks[provider]?.remove(scope);
       if (callback != null) {
         scope.removeListener(callback);

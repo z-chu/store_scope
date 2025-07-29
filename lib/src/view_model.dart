@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:equatable/equatable.dart';
 import 'package:store_scope/src/provider.dart' show Provider;
@@ -35,6 +37,13 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
     _keyToCloseables.clear();
     _closeables.clear();
     _viewModelScope.dispose();
+  }
+
+  @protected
+  void addSubscription(StreamSubscription subscription) {
+    _closeables.add(() {
+      subscription.cancel();
+    });
   }
 
   /// Adds a closeable resource to be disposed when the ViewModel is disposed.
