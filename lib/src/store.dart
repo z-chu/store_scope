@@ -76,7 +76,6 @@ abstract class ScopeAware {
   Listenable get scope;
 }
 
-
 /// Interface for objects that own a Store instance.
 /// Provides access to the store and ability to unmount it.
 abstract class StoreOwner {
@@ -101,9 +100,47 @@ class StoreOwnerImpl extends StoreOwner {
   void unmountStore() => _store.unmount();
 }
 
-
 extension StoreExtension on Store {
   T bindWithScoped<T>(ProviderBase<T> provider, ScopeAware scopeAware) {
     return bindWith(provider, scopeAware.scope);
+  }
+
+  T temporary<T>(ProviderBase<T> provider) {
+    var autoGCListenable = _AutoGCListenable();
+    var result = bindWith(provider, autoGCListenable);
+    autoGCListenable.start();
+    return result;
+  }
+}
+
+/// 自动触发的 GC 监听器
+class _AutoGCListenable extends ChangeNotifier {
+  // ignore: unused_field
+  Finalizer<_AutoGCListenable>? _finalizer;
+  // ignore: unused_field
+  WeakReference<Object>? _weakTarget;
+  bool _disposed = false;
+
+  _AutoGCListenable();
+
+  void start() {
+    Finalizer<_AutoGCListenable> finalizer = Finalizer((listenable) {
+      if (!listenable._disposed) {
+        listenable.notifyListeners();
+        listenable.dispose();
+      }
+    });
+    _finalizer = finalizer;
+    final target = Object();
+    _weakTarget = WeakReference(target);
+    finalizer.attach(target, this);
+  }
+
+  @override
+  void dispose() {
+    if (!_disposed) {
+      _disposed = true;
+      super.dispose();
+    }
   }
 }
