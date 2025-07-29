@@ -1,3 +1,9 @@
+## 0.0.11
+* ViewModel add addSubscription method
+* Add temporary method of Store to support creation of temporary instances
+* Introducing ScopedBuilder to simplify the interaction between components and Store
+
+
 ## 0.0.10
 * Introducing AutoStoreWidget and AutoStoreStatefulWidget to simplify state management and automatically handle the Store lifecycle
 
