@@ -30,8 +30,11 @@ abstract class Provider<T> extends ProviderBase<T> {
     if (store.mounted) {
       var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
       instanceScopeManager.onInstanceDisposed(instance);
-      disposeInstance(instance);
     }
+    // disposeInstance 必须无条件执行:unmount() 会先把 _mounted 置为 false 再析构实例,
+    // 若把它放进 if(store.mounted) 内,Store 卸载时所有实例都不会被析构(资源泄漏)。
+    // 只有上面的 instanceScopeManager 簿记需要 mounted 守卫(卸载时整个 manager 会被清空)。
+    disposeInstance(instance);
   }
 
   T createInstance(StoreSpace space);

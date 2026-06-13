@@ -26,17 +26,20 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   @override
   @mustCallSuper
   void dispose() {
-    super.dispose();
-    for (var closeable in _closeables) {
+    // 先 dispose scope:让 disposed=true,这样在 closeable 内重入调用
+    // addCloseable/addKeyedCloseable 时会走"立即关闭"分支,不再 mutate 集合。
+    // 再对集合做快照遍历(toList),双保险避免 ConcurrentModificationError。
+    _viewModelScope.dispose();
+    for (var closeable in _closeables.toList()) {
       _closeWithException(closeable);
     }
-    var keyedCloseables = _keyToCloseables.values;
-    for (var closeable in keyedCloseables) {
+    for (var closeable in _keyToCloseables.values.toList()) {
       _closeWithException(closeable);
     }
     _keyToCloseables.clear();
     _closeables.clear();
-    _viewModelScope.dispose();
+    // super.dispose() 放最后:closeable 运行期间 ChangeNotifier 仍可用。
+    super.dispose();
   }
 
   @protected
@@ -100,7 +103,8 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
     var oldCloseable = _keyToCloseables[key];
     if (oldCloseable != null) {
       if (oldCloseable == closeable) return;
-      _viewModelScope.removeListener(oldCloseable);
+      // 立即执行旧的 keyed closeable。注意:closeable 从不作为 listener 注册,
+      // 因此无需(也不能)调用 removeListener。
       oldCloseable.call();
     }
     _keyToCloseables[key] = closeable;

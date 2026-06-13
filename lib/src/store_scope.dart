@@ -33,7 +33,7 @@ class StoreScope extends StatefulWidget {
 }
 
 class _StoreScopeState extends State<StoreScope> {
-  late final StoreOwner _storeOwner;
+  late StoreOwner _storeOwner;
 
   @override
   void initState() {
