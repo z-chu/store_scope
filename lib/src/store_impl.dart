@@ -6,8 +6,6 @@ class StoreImpl implements UnmountableStore {
   final Map<ProviderBase<dynamic>, Map<Listenable, VoidCallback>>
   _listenerCallbacks = {};
 
-  final Set<ProviderBase<dynamic>> _sharedProviders = <ProviderBase>{};
-
   bool _mounted = true;
 
   @override
@@ -26,10 +24,9 @@ class StoreImpl implements UnmountableStore {
   }
 
   @override
-  T shared<T>(ProviderBase<T> provider) {
+  T read<T>(SharedProvider<T> provider) {
     _checkMounted();
-    _warnIfBound(provider);
-    return _getOrCreateInstance(provider, true);
+    return _getOrCreateInstance(provider);
   }
 
   /// Watches a provider with the given notifier.
@@ -37,9 +34,12 @@ class StoreImpl implements UnmountableStore {
   @override
   T bindWith<T>(ProviderBase<T> provider, Listenable scope) {
     _checkMounted();
-    _warnIfShared(provider);
-    _bindProviderToScope(provider, scope);
-    return _getOrCreateInstance(provider, false);
+    // A SharedProvider follows the Store lifetime and is never tied to a scope;
+    // for it, bindWith behaves like read (the passed scope is ignored).
+    if (provider is! SharedProvider) {
+      _bindProviderToScope(provider, scope);
+    }
+    return _getOrCreateInstance(provider);
   }
 
   @override
@@ -60,27 +60,20 @@ class StoreImpl implements UnmountableStore {
 Store unmounted:
 - Instances cleared: ${_instances.length}
 - Watchers cleared: ${_scopeWatchers.length}
-- Shared instances cleared: ${_sharedProviders.length}
 ''');
     _instances.clear();
     _scopeWatchers.clear();
-    _sharedProviders.clear();
     _listenerCallbacks.clear();
   }
 
   // === Private Instance Management ===
 
-  T _getOrCreateInstance<T>(ProviderBase<T> provider, bool shared) {
+  T _getOrCreateInstance<T>(ProviderBase<T> provider) {
     var instance = _instances[provider];
     if (instance == null) {
       instance = provider.create(this);
       _instances[provider] = instance;
-      if (shared) {
-        _sharedProviders.add(provider);
-        _log('"${instance.runtimeType}" shared instance created');
-      } else {
-        _log('"${instance.runtimeType}" bound instance created');
-      }
+      _log('"${instance.runtimeType}" instance created');
     }
     return instance as T;
   }
@@ -97,14 +90,9 @@ Store unmounted:
       }
     }
 
-    // 只有非shared provider才dispose instance
-    if (!_sharedProviders.contains(provider)) {
-      _disposeProviderInstance(provider, instance);
-      _instances.remove(provider);
-      _log('"${instance.runtimeType}" instance disposed');
-    } else {
-      _log('"${instance.runtimeType}" watchers cleared (shared instance kept)');
-    }
+    _disposeProviderInstance(provider, instance);
+    _instances.remove(provider);
+    _log('"${instance.runtimeType}" instance disposed');
   }
 
   // === Private Scope Management ===
@@ -161,30 +149,6 @@ Store unmounted:
   void _checkMounted() {
     if (!_mounted) {
       throw StateError('Cannot use a disposed Store');
-    }
-  }
-
-  void _warnIfShared<T>(ProviderBase<T> provider) {
-    if (_sharedProviders.contains(provider)) {
-      assert(() {
-        _log('''
-Warning: Provider "${provider.runtimeType}" is already registered as a shared instance.
-The lifecycle binding will have no effect on instance disposal.
-''', isError: true);
-        return true;
-      }());
-    }
-  }
-
-  void _warnIfBound<T>(ProviderBase<T> provider) {
-    if (_scopeWatchers.containsKey(provider)) {
-      assert(() {
-        _log('''
-Warning: Provider "${provider.runtimeType}" is already bound with lifecycle.
-Converting to a shared instance might not be the behavior you want.
-''', isError: true);
-        return true;
-      }());
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'provider.dart';
 import 'store.dart';
 
 part 'extensions.dart';

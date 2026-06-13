@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:equatable/equatable.dart';
-import 'package:store_scope/src/provider.dart' show Provider;
+import 'package:store_scope/src/provider.dart' show Provider, SharedProvider;
 
 import 'dispose_state_notifier.dart';
 import 'store.dart';
@@ -166,6 +166,14 @@ class ViewModelProvider<T extends ViewModel> extends ViewModelProviderBase<T> {
   void disposeViewModel(T instance) {
     disposer?.call(instance);
   }
+
+  /// Creates a store-lifetime ViewModel provider: the ViewModel is created
+  /// lazily on first [Store.read], `init()` is called, and it is disposed when
+  /// the Store is unmounted. Read it with `context.read(provider)`.
+  static SharedProvider<T> shared<T extends ViewModel>(
+    T Function(StoreSpace space) creator, {
+    void Function(T instance)? disposer,
+  }) => SharedProvider.of(ViewModelProvider(creator, disposer: disposer));
 
   static ArgVmProviderFactory<T, A> withArgument<T extends ViewModel, A>(
     T Function(StoreSpace space, A arg) creator, {

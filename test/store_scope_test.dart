@@ -44,10 +44,11 @@ void main() {
       expect(store.exists(provider), isFalse);
     });
 
-    test('should create and read provider instance', () {
-      final instance = store.shared(provider);
-      expect(instance, isNotNull);
-      expect(store.exists(provider), isTrue);
+    test('should create and read shared instance', () {
+      final sharedProvider = Provider.shared((space) => 'shared');
+      final instance = store.read(sharedProvider);
+      expect(instance, 'shared');
+      expect(store.exists(sharedProvider), isTrue);
     });
 
     test('should watch provider', () {
@@ -69,7 +70,7 @@ void main() {
     });
 
     test('should create and initialize view model', () {
-      final vm = store.shared(provider);
+      final vm = store.bindWith(provider, DisposeStateNotifier());
       expect(vm, isNotNull);
       expect(vm.disposed, isFalse);
     });

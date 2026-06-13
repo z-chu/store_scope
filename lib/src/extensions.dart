@@ -39,4 +39,8 @@ extension StoreContextExtension on BuildContext {
   }
 
   bool get storeMounted => storeOrNull?.mounted ?? false;
+
+  /// Reads (gets or creates) a store-lifetime [SharedProvider] from the nearest
+  /// [Store]. Creates a dependency on the closest [StoreScope] ancestor.
+  T read<T>(SharedProvider<T> provider) => store.read(provider);
 }

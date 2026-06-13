@@ -42,6 +42,13 @@ final counterProvider = ViewModelProvider.withArgument((
   final numberViewModel = space.bind(numberProvider(5));
   return CounterViewModel(numberViewModel, multiplyNumber);
 });
+
+// store-lifetime ViewModel: lives as long as the (Auto)StoreScope above it,
+// read with context.read (no scope required).
+final sharedCounterProvider = ViewModelProvider.shared(
+  (space) => CounterViewModel(space.bind(numberProvider(5)), 2),
+);
+
 void main() {
   runApp(const MyApp());
 }
@@ -151,7 +158,7 @@ class StoreScopePage extends AutoStoreWidget {
 
   @override
   Widget build(BuildContext context) {
-    var viewModel = context.store.shared(counterProvider(2));
+    var viewModel = context.read(sharedCounterProvider);
     viewModel.increment();
     return const ChildPage();
   }
@@ -168,11 +175,27 @@ class _ChildPageState extends State<ChildPage> {
   @override
   void initState() {
     super.initState();
-    context.store.shared(counterProvider(2)).increment();
+    context.read(sharedCounterProvider).increment();
   }
 
   @override
   Widget build(BuildContext context) {
-    return CounterPage();
+    // Reads the SAME store-lifetime instance that StoreScopePage incremented,
+    // because both live in the AutoStoreWidget's own Store.
+    final viewModel = context.read(sharedCounterProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Shared Counter')),
+      body: Center(
+        child: ValueListenableBuilder<int>(
+          valueListenable: viewModel.count,
+          builder: (context, count, child) {
+            return Text(
+              'Count: $count',
+              style: Theme.of(context).textTheme.headlineMedium,
+            );
+          },
+        ),
+      ),
+    );
   }
 }

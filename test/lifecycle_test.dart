@@ -70,4 +70,23 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('SharedProvider lifetime', () {
+    test('singleton; survives scope death; disposed at unmount', () {
+      final store = StoreImpl();
+      final p = ViewModelProvider.shared((s) => _LeakVM());
+      final a = store.read(p);
+      expect(identical(store.read(p), a), isTrue); // singleton
+
+      // bindWith on a shared provider ignores the passed scope.
+      final scope = DisposeStateNotifier();
+      expect(identical(store.bindWith(p, scope), a), isTrue);
+      scope.dispose();
+      expect(a.closed, isFalse); // survives scope death
+      expect(store.exists(p), isTrue);
+
+      store.unmount();
+      expect(a.closed, isTrue); // disposed at unmount
+    });
+  });
 }

@@ -13,11 +13,36 @@ abstract class ProviderBase<T> {
   void dispose(Store store, T instance);
 }
 
+/// A provider whose instance lifetime follows the [Store] itself: it is created
+/// lazily on first access and disposed when the Store is unmounted. Unlike a
+/// scoped [Provider], it is never tied to a widget scope, so it is the only kind
+/// accepted by the scope-free [Store.read].
+///
+/// Create one via [Provider.shared] or [ViewModelProvider.shared].
+abstract class SharedProvider<T> extends ProviderBase<T> {
+  /// Wraps a scoped [Provider] so its instance follows the Store lifetime.
+  /// Used internally by [Provider.shared] / [ViewModelProvider.shared].
+  static SharedProvider<T> of<T>(Provider<T> provider) =>
+      _SharedProvider<T>(provider);
+}
+
+class _SharedProvider<T> extends SharedProvider<T> {
+  final Provider<T> _delegate;
+
+  _SharedProvider(this._delegate);
+
+  @override
+  T create(Store store) => _delegate.create(store);
+
+  @override
+  void dispose(Store store, T instance) => _delegate.dispose(store, instance);
+}
+
 abstract class Provider<T> extends ProviderBase<T> {
   @override
   @nonVirtual
   T create(Store store) {
-    var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
+    var instanceScopeManager = store.read(_instanceScopeManagerProvider);
     var scope = DisposeStateNotifier();
     final instance = createInstance(StoreSpace(store, scope));
     instanceScopeManager.onInstanceCreated(instance, scope);
@@ -28,7 +53,7 @@ abstract class Provider<T> extends ProviderBase<T> {
   @nonVirtual
   void dispose(Store store, T instance) {
     if (store.mounted) {
-      var instanceScopeManager = store.shared(_instanceScopeManagerProvider);
+      var instanceScopeManager = store.read(_instanceScopeManagerProvider);
       instanceScopeManager.onInstanceDisposed(instance);
     }
     // disposeInstance 必须无条件执行:unmount() 会先把 _mounted 置为 false 再析构实例,
@@ -45,6 +70,22 @@ abstract class Provider<T> extends ProviderBase<T> {
     T Function(StoreSpace space) creator, {
     void Function(T instance)? disposer,
   }) => _CallbackProvider(creator: creator, disposer: disposer);
+
+  /// Creates a store-lifetime provider: the instance is created lazily on first
+  /// [Store.read] and kept alive until the Store is unmounted (it is never tied
+  /// to a widget scope).
+  ///
+  /// Example:
+  /// ```dart
+  /// final authProvider = Provider.shared((space) => Auth());
+  /// final auth = context.read(authProvider); // or store.read(authProvider)
+  /// ```
+  static SharedProvider<T> shared<T>(
+    T Function(StoreSpace space) creator, {
+    void Function(T instance)? disposer,
+  }) => SharedProvider.of(
+    _CallbackProvider(creator: creator, disposer: disposer),
+  );
 
   /// Creates an [ArgProviderFactory] for values that require an argument at creation time.
   ///

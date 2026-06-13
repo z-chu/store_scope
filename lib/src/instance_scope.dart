@@ -18,7 +18,7 @@ class _InstanceScopeManager {
 }
 
 class _InstanceScopeManagerProvider
-    extends ProviderBase<_InstanceScopeManager> {
+    extends SharedProvider<_InstanceScopeManager> {
   @override
   _InstanceScopeManager create(Store store) {
     return _InstanceScopeManager();

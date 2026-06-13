@@ -42,7 +42,7 @@ class StoreSpace implements ScopeAware, Store {
   bool get mounted => _store.mounted;
 
   @override
-  T shared<T>(ProviderBase<T> provider) {
-    return _store.shared(provider);
+  T read<T>(SharedProvider<T> provider) {
+    return _store.read(provider);
   }
 }

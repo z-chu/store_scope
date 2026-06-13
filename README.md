@@ -46,7 +46,13 @@ class Counter {
 ### 3. 创建 Provider:
 
 ```dart
+// 作用域实例：跟随绑定它的页面/Widget，最后一个使用者销毁时自动析构（见方式二）
 final counterProvider = Provider.from(
+  (space) => Counter(),
+);
+
+// 全局实例：跟随 Store 生命周期，直到 StoreScope 被移除；用 context.read 读取（见方式一）
+final sharedCounterProvider = Provider.shared(
   (space) => Counter(),
 );
 ```
@@ -54,15 +60,15 @@ final counterProvider = Provider.from(
 
 ### 4. 在页面中使用响应式状态:
 
-#### 方式一：使用 shared（全局状态）
+#### 方式一：使用 Provider.shared + context.read（全局状态）
 
 ```dart
 class Home extends StatelessWidget {
 
   @override
   Widget build(context) {
-    // 使用 shared 方法会让 counter 一直存在于内存中，直到 StoreScope 被移除
-    var counter = context.store.shared(counterProvider);
+    // 用 read 读取全局实例，它会一直存在于内存中，直到 StoreScope 被移除
+    var counter = context.read(sharedCounterProvider);
     return Scaffold(
       appBar: AppBar(
         title: ValueListenableBuilder<int>(
@@ -86,7 +92,7 @@ class Other extends StatelessWidget {
    @override
   Widget build(BuildContext context) {
     // 在其他页面中也可以访问同一个全局状态
-    final counter = context.store.shared(counterProvider);
+    final counter = context.read(sharedCounterProvider);
     
     return Scaffold(
       body: Center(
@@ -168,7 +174,7 @@ final user = space.bind(userProvider(42));
 
 ### 状态依赖
 ```dart
-final userProfileProvider = ViewModelProvider.from((space) {
+final userProfileProvider = ViewModelProvider((space) {
   final user = space.bind(userProvider(42));
   final settings = space.bind(settingsProvider);
   return UserProfileViewModel(user, settings);
@@ -240,7 +246,7 @@ class NetworkViewModel extends ViewModel {
 ```
 #### 3. 使用ViewModelProvider：
 ```dart
-final viewModelProvider = ViewModelProvider.from((space) => CounterViewModel());
+final viewModelProvider = ViewModelProvider((space) => CounterViewModel());
  
 // 使用
 final viewModel = space.bind(viewModelProvider);

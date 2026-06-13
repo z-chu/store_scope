@@ -17,9 +17,9 @@ abstract class Store {
   ///
   /// Example:
   /// ```dart
-  /// final counterProvider = Provider((store) => 0);
+  /// final counterProvider = Provider.shared((space) => 0);
   /// store.exists(counterProvider) // returns false
-  /// store.shared(counterProvider) // or store.bind(counterProvider, disposeNotifier);
+  /// store.read(counterProvider);
   /// store.exists(counterProvider) // returns true
   /// ```
   bool exists<T>(ProviderBase<T> provider);
@@ -29,24 +29,24 @@ abstract class Store {
   ///
   /// Example:
   /// ```dart
-  /// final counterProvider = Provider((store) => 0);
-  /// final value = store.find(counterProvider);
-  /// print(value == null); // true
-  /// store.shared(counterProvider); // or store.bind(counterProvider, disposeNotifier);
-  /// print(value == null); // false
+  /// final counterProvider = Provider.shared((space) => 0);
+  /// print(store.find(counterProvider) == null); // true
+  /// store.read(counterProvider);
+  /// print(store.find(counterProvider) == null); // false
   /// ```
   T? find<T>(ProviderBase<T> provider);
 
-  /// Gets or creates a provider instance.
-  /// If the instance doesn't exist, it will be created and cached.
-  /// This method is typically used for accessing global shared state.
+  /// Gets or creates the instance of a store-lifetime [SharedProvider].
+  /// The instance is created lazily on first read and kept alive until the
+  /// Store is unmounted. No scope is required, which is why it only accepts a
+  /// [SharedProvider] (a scoped [Provider] must be acquired via [bindWith]).
   ///
   /// Example:
   /// ```dart
-  /// final counterProvider = Provider((store) => 0);
-  /// final counter = store.shared(counterProvider); // Gets or creates counter instance
+  /// final authProvider = Provider.shared((space) => Auth());
+  /// final auth = store.read(authProvider); // gets or creates the singleton
   /// ```
-  T shared<T>(ProviderBase<T> provider);
+  T read<T>(SharedProvider<T> provider);
 
   /// Binds a provider to a disposable widget or object.
   /// The provider instance will be tracked and cleaned up when the disposeNotifier signals disposal.
