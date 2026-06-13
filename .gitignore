@@ -36,3 +36,7 @@ lcov.info
 .flutter-plugins-dependencies
 .flutter-plugins
 /.vscode
+
+# Local tooling / working docs (not part of the published package)
+.codegraph/
+/ARCHITECTURE_REVIEW.md
