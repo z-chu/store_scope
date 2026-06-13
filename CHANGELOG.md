@@ -1,3 +1,10 @@
+## 0.1.0
+* **BREAKING**: Instance lifetime is now declared on the provider. `Store.shared()` is removed — define store-lifetime instances with `Provider.shared(...)` / `ViewModelProvider.shared(...)` and read them via the scope-free, statically typed `Store.read` / `context.read`. Scoped providers keep using `bind` / `bindWith`.
+* Fix: `Store.unmount()` now disposes every instance; ViewModels and their subscriptions were previously leaked on teardown.
+* Fix: `ViewModel.dispose()` no longer throws `ConcurrentModificationError` when a closeable registers another closeable.
+* Fix: swapping `StoreScope.storeOwner` no longer throws `LateInitializationError`.
+* Remove the internal shared-instances tracking and the assert-only shared/bind misuse warnings.
+
 ## 0.0.11
 * ViewModel add addSubscription method
 * Add temporary method of Store to support creation of temporary instances
