@@ -6,36 +6,80 @@ import 'store.dart';
 part 'extensions.dart';
 part 'auto_store_widgets.dart';
 
-/// A widget that provides a [Store] implementation for the widget tree.
+/// The widget that creates and owns a [Store] for its subtree.
 ///
-/// You can either use the default store implementation:
+/// Place a [StoreScope] above the widgets that need dependency injection.
+/// While the scope is mounted its [Store] is reachable from descendants (for
+/// example through `context.share(...)` or the scoped widgets in this
+/// package), and it acts as the lifetime boundary for everything the store
+/// holds: removing the [StoreScope] from the tree unmounts the store and
+/// deterministically disposes every instance it created.
+///
+/// Most apps wrap their root with a single store-lifetime scope:
 /// ```dart
 /// StoreScope(
 ///   child: MyApp(),
 /// )
 /// ```
 ///
-/// Or provide a custom [StoreOwner]:
+/// For tests (or feature-local sandboxes) you can inject test doubles through
+/// [overrides] without touching production provider definitions:
+/// ```dart
+/// StoreScope(
+///   overrides: [
+///     apiProvider.overrideWithValue(FakeApi()),
+///     repoProvider.overrideWith((space) => InMemoryRepo()),
+///   ],
+///   child: MyApp(),
+/// )
+/// ```
+///
+/// Advanced callers can supply a custom [StoreOwner] to control how the
+/// underlying store is built and torn down:
 /// ```dart
 /// StoreScope(
 ///   storeOwner: MyCustomStoreOwner(),
 ///   child: MyApp(),
 /// )
 /// ```
+///
+/// Lifetime: the store is created in `initState` and unmounted in `dispose`
+/// (or when [storeOwner] changes on a rebuild). Provider instances bound or
+/// shared through this store live no longer than the scope itself.
 class StoreScope extends StatefulWidget {
+  /// An optional, externally managed owner of the [Store].
+  ///
+  /// When supplied, this [StoreScope] uses the owner's store as-is instead of
+  /// creating a default one, and delegates unmounting to the owner. Use this
+  /// to share a single store across rebuilds, hoist store ownership outside the
+  /// widget tree, or plug in a custom store implementation.
+  ///
+  /// When non-null, [overrides] are ignored (enforced by an assert in the
+  /// constructor). Changing the owner on a rebuild rebuilds the store and
+  /// unmounts the previous one.
   final StoreOwner? storeOwner;
 
   /// Provider overrides (e.g. fakes/mocks for tests) applied to the default
   /// store. Ignored when a custom [storeOwner] is supplied.
+  ///
+  /// Each [Override] is installed at creation time: `overrideWithValue(v)`
+  /// injects a ready instance the store never disposes, while
+  /// `overrideWith((space) => x)` replaces the provider's creation logic.
   ///
   /// Read **once** when the store is created; changing this list on a later
   /// rebuild has no effect. To swap overrides at runtime, give the [StoreScope]
   /// a new [key] (or [storeOwner]) so the store is rebuilt.
   final List<Override<dynamic>> overrides;
 
+  /// The subtree that gains access to this scope's [Store].
   final Widget child;
 
   /// Creates a [StoreScope] with a default store implementation.
+  ///
+  /// Pass [overrides] to inject test doubles into the default store, or supply
+  /// a [storeOwner] to provide a custom or shared store. The two are mutually
+  /// exclusive: an assert fails if both [storeOwner] and a non-empty
+  /// [overrides] list are given.
   const StoreScope({
     super.key,
     this.storeOwner,

@@ -1,28 +1,42 @@
 part of 'store_scope.dart';
 
-/// 自动包含 StoreScope 的 StatelessWidget 基类
+/// A [StatelessWidget]-style base class that owns its own [Store].
 ///
-/// 这个类为无状态组件提供了自动的状态管理能力。
-/// 继承此类的组件会自动获得一个独立的 Store 实例，
-/// 无需手动包装 StoreScope widget。
+/// Subclass this instead of [StatelessWidget] when a widget needs a private
+/// dependency-injection container without manually wrapping itself in a
+/// [StoreScope]. Each instance gets a fresh [Store] that lives exactly as long
+/// as the element is mounted: it is created the first time the element builds
+/// and is unmounted (disposing every instance it holds) when the element is
+/// removed from the tree.
 ///
-/// 使用示例：
+/// Because the [Store] is exposed to the subtree through an inherited widget,
+/// the [build] method and any descendants can resolve store-lifetime instances
+/// with `context.share(provider)` and bind scoped instances through the store.
+///
+/// Example:
 /// ```dart
+/// // counterProvider = Provider.shared((space) => 0);
 /// class MyPage extends AutoStoreWidget {
 ///   const MyPage({super.key});
 ///
 ///   @override
 ///   Widget build(BuildContext context) {
-///     // 可以直接使用 context.shared() 等方法访问 Store
-///     final counter = context.shared(counterProvider);
+///     // Resolve the lazy, store-lifetime singleton declared by the provider.
+///     final counter = context.share(counterProvider);
 ///     return Text('Counter: $counter');
 ///   }
 /// }
 /// ```
 ///
-/// 注意：虽然名为 AutoStoreWidget，但它实际上继承自 AutoStoreStatefulWidget，
-/// 这是为了能够管理 Store 的生命周期（创建和销毁）。
+/// Note: despite the "stateless" naming, this class extends
+/// [AutoStoreStatefulWidget]. A stateful element is required so the owned
+/// [Store] can be created and unmounted in step with the widget's lifecycle.
 abstract class AutoStoreWidget extends AutoStoreStatefulWidget {
+  /// Creates an [AutoStoreWidget].
+  ///
+  /// The owned [Store] is not created here; it is lazily initialized by the
+  /// backing element the first time the widget builds and is unmounted when
+  /// that element leaves the tree.
   const AutoStoreWidget({super.key});
 
   @override
@@ -30,13 +44,19 @@ abstract class AutoStoreWidget extends AutoStoreStatefulWidget {
     return _AutoStoreWidgetState();
   }
 
-  /// 子类需要实现这个方法来构建UI
-  /// 在这个方法中可以直接使用 context 访问 Store
+  /// Builds the UI for this widget.
+  ///
+  /// Override this to describe the part of the user interface represented by
+  /// the widget. The provided [context] is already located beneath the inherited
+  /// widget that exposes this widget's owned [Store], so it can be used directly
+  /// with `context.share(provider)` (store-lifetime acquisition) and other
+  /// store-backed context extensions.
   Widget build(BuildContext context);
 }
 
-/// AutoStoreWidget 的内部状态类
-/// 负责将 build 方法委托给 widget
+/// The internal [State] for [AutoStoreWidget].
+/// It simply forwards [build] to the widget so subclasses only implement
+/// [AutoStoreWidget.build].
 class _AutoStoreWidgetState extends State<AutoStoreWidget> {
   @override
   Widget build(BuildContext context) {
@@ -44,15 +64,22 @@ class _AutoStoreWidgetState extends State<AutoStoreWidget> {
   }
 }
 
-/// 自动包含 StoreScope 的 StatefulWidget 基类
+/// A [StatefulWidget] base class that owns its own [Store].
 ///
-/// 这个类为有状态组件提供了自动的状态管理能力。
-/// 继承此类的组件会自动获得一个独立的 Store 实例，
-/// 该实例会在组件的整个生命周期中保持存在，
-/// 并在组件销毁时自动清理。
+/// Subclass this instead of [StatefulWidget] when a stateful widget needs a
+/// private dependency-injection container without manually wrapping itself in a
+/// [StoreScope]. The owned [Store] is bound to the element's lifecycle: it is
+/// created on first build and unmounted — disposing every instance it holds —
+/// when the element is removed from the tree.
 ///
-/// 使用示例：
+/// The [Store] is published to the subtree through an inherited widget, so both
+/// the widget's [State.build] and any descendants can resolve store-lifetime
+/// instances with `context.share(provider)` and bind scoped instances through
+/// the store.
+///
+/// Example:
 /// ```dart
+/// // counterProvider = Provider.shared((space) => 0);
 /// class MyStatefulPage extends AutoStoreStatefulWidget {
 ///   const MyStatefulPage({super.key});
 ///
@@ -63,52 +90,57 @@ class _AutoStoreWidgetState extends State<AutoStoreWidget> {
 /// class _MyStatefulPageState extends State<MyStatefulPage> {
 ///   @override
 ///   Widget build(BuildContext context) {
-///     // 可以直接使用 context.shared() 等方法访问 Store
-///     final counter = context.shared(counterProvider);
+///     final counter = context.share(counterProvider);
 ///     return Text('Counter: $counter');
 ///   }
 /// }
 /// ```
 ///
-/// 主要特性：
-/// - 自动创建和管理 Store 实例
-/// - Store 生命周期与组件生命周期绑定
-/// - 组件销毁时自动清理 Store 资源
-/// - 通过 InheritedWidget 向子组件提供 Store 访问
+/// Key characteristics:
+/// - Automatically creates and owns a per-instance [Store].
+/// - The store's lifetime is tied to the widget's element lifetime.
+/// - All instances held by the store are disposed when the widget unmounts.
+/// - The store is exposed to descendants via an inherited widget so they can
+///   access it through the store-backed [BuildContext] extensions.
 abstract class AutoStoreStatefulWidget extends StatefulWidget {
+  /// Creates an [AutoStoreStatefulWidget].
+  ///
+  /// The owned [Store] is created lazily by the backing element rather than in
+  /// this constructor, and is unmounted when the element leaves the tree.
   const AutoStoreStatefulWidget({super.key});
 
   @override
   StatefulElement createElement() {
-    // 创建自定义的 Element，用于管理 Store 生命周期
+    // Create a custom element that manages the Store lifecycle.
     return _AutoStoreStatefulElement(this);
   }
 }
 
-/// AutoStoreStatefulWidget 的自定义 Element 实现
+/// The custom [StatefulElement] backing [AutoStoreStatefulWidget].
 ///
-/// 这个 Element 实现了 StoreOwner 接口，负责：
-/// 1. 创建和管理 Store 实例
-/// 2. 通过 InheritedWidget 向子组件提供 Store 访问
-/// 3. 在组件卸载时清理 Store 资源
+/// It implements the [StoreOwner] contract and is responsible for:
+/// 1. Creating and owning the [StoreImpl] instance.
+/// 2. Exposing the store to descendants through an inherited widget.
+/// 3. Unmounting the store (and disposing everything it holds) when the
+///    element is removed from the tree.
 class _AutoStoreStatefulElement extends StatefulElement implements StoreOwner {
   _AutoStoreStatefulElement(AutoStoreStatefulWidget super.widget);
 
-  /// Store 实例，延迟初始化
-  /// 每个 AutoStoreStatefulWidget 都有自己独立的 Store
+  /// The owned store, lazily initialized.
+  /// Each AutoStoreStatefulWidget has its own independent Store.
   late final StoreImpl _store = StoreImpl();
 
   @override
   Widget build() {
-    // 使用 InheritedWidget 包装子组件，使 Store 可以被子组件访问
-    // 这样子组件就可以通过 context.shared() 等方法使用 Store
+    // Wrap the child in an inherited widget so the store is reachable from the
+    // subtree, e.g. via context.share().
     return _InheritedStoreScope(store: store, child: super.build());
   }
 
   @override
   void unmount() {
-    // 在 Element 卸载时清理 Store 资源
-    // 这确保了所有相关的 Provider 实例都会被正确清理
+    // Unmount the store when the element is removed, so every provider instance
+    // it holds is disposed deterministically.
     unmountStore();
     super.unmount();
   }
@@ -118,7 +150,7 @@ class _AutoStoreStatefulElement extends StatefulElement implements StoreOwner {
 
   @override
   void unmountStore() {
-    // 卸载 Store，清理所有相关资源
+    // Unmount the store and release all of its resources.
     _store.unmount();
   }
 }

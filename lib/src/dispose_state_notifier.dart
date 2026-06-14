@@ -3,20 +3,31 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 /// A [ChangeNotifier] that tracks its disposed state and notifies listeners
-/// when disposed.
+/// exactly once when it is disposed.
 ///
-/// This class is especially useful for managing the lifecycle of objects
-/// that need to notify others when they are disposed. It is recommended
-/// to use [DisposeStateNotifier] as the implementation for the [ScopeAware.scope]
-/// property, as it provides a convenient and reliable way to signal when
-/// the object's scope becomes invalid.
+/// [DisposeStateNotifier] turns a disposal event into a [Listenable] signal:
+/// it fires its listeners the moment [dispose] is called and then remembers
+/// that it is dead via [disposed]. Because it is a [Listenable], it is the
+/// canonical building block for a *scope* in this package — a thing whose
+/// disposal releases the instances bound through it.
 ///
-/// **Listener Behavior:**  
-/// Listeners added before disposal will be notified when the object is disposed.
-/// If a listener is added after the object has already been disposed,
-/// it will be scheduled to execute immediately in a microtask.  
-/// This ensures that all listeners, regardless of when they are added,
-/// will always be notified of the disposal event.
+/// This makes it the recommended backing for the [ScopeAware.scope] property:
+/// expose a [DisposeStateNotifier] as your `scope`, and call its [dispose]
+/// from your own teardown. Whoever bound instances against that scope (e.g.
+/// through `space.bind`) will then have those instances released
+/// deterministically when your object dies.
+///
+/// **Listener behavior:**
+/// Listeners added before disposal are notified once, synchronously, when
+/// [dispose] is called. If a listener is added *after* the notifier has
+/// already been disposed, it is instead scheduled to run immediately in a
+/// microtask (see [addListener]). This guarantees that every listener —
+/// regardless of registration timing — is always notified of the disposal
+/// event, so callers never miss a "scope is now invalid" signal because of a
+/// race.
+///
+/// Once disposed, the notifier stays disposed; [dispose] is idempotent and
+/// will not fire listeners a second time.
 ///
 /// Example usage:
 /// ```dart
@@ -33,9 +44,21 @@ import 'package:flutter/widgets.dart';
 class DisposeStateNotifier extends ChangeNotifier {
   bool _disposed = false;
 
-  /// Whether this object has been disposed.
+  /// Whether this object has already been disposed.
+  ///
+  /// Becomes `true` permanently after the first call to [dispose]. Use it to
+  /// guard against acting on a scope whose disposal signal has already fired.
   bool get disposed => _disposed;
 
+  /// Marks this notifier as disposed and notifies its listeners.
+  ///
+  /// On the first call this flips [disposed] to `true` and calls
+  /// `notifyListeners()` once, signalling every listener that the scope is now
+  /// invalid. Subsequent calls are no-ops with respect to listeners — the
+  /// notification fires exactly once over the lifetime of the object.
+  ///
+  /// Always delegates to `super.dispose()` to release the underlying
+  /// [ChangeNotifier] resources.
   @override
   void dispose() {
     if (!_disposed) {
@@ -45,10 +68,13 @@ class DisposeStateNotifier extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Adds a listener that will be called when the object is disposed.
+  /// Registers a listener to be called when this notifier is disposed.
   ///
-  /// If the object has already been disposed, the listener will be scheduled
-  /// to execute immediately in a microtask.
+  /// If the notifier has not yet been disposed, the listener is added normally
+  /// and will be invoked when [dispose] is later called. If the notifier has
+  /// *already* been disposed, the listener is instead scheduled to run
+  /// immediately via [scheduleMicrotask], so it still observes the disposal
+  /// event rather than being silently dropped.
   @override
   void addListener(VoidCallback listener) {
     if (!_disposed) {
