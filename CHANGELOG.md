@@ -1,5 +1,9 @@
-## 0.1.1
+## 0.2.0
 * Add provider overrides for tests/DI. Inject fakes via `StoreScope(overrides: [...])` or `StoreImpl(overrides: [...])`, built with `provider.overrideWithValue(fake)` (caller owns the instance's lifecycle) or `provider.overrideWith((space) => fake, dispose: ...)`.
+* **BREAKING**: acquiring a store-lifetime instance is now `Store.share` / `StoreSpace.share` / `context.share` (was `read`). It accepts only a `SharedProvider` and pairs with the `Provider.shared(...)` definition. Migration: replace `read(` with `share(` at those call sites.
+* Added store-lifetime **argument** providers: mark a `withArgument` factory `.asShared` at the definition site, then acquire per-argument singletons with `store.share(p(arg))`. Keyed by the argument's value and alive until the Store is unmounted; available on every arity (`withArgument`..`withArgument6`) for both `Provider` and `ViewModelProvider`. Example: `final userProvider = Provider.withArgument<User, int>((s, id) => User(id)).asShared;`
+* **BREAKING** (low impact): the per-arity argument-provider factories were unified into a single internal provider class; their public `createInstance` / `createViewModel` helper methods were removed. Acquire instances the usual way — call the factory (`factory(arg)`) then `space.bind(...)` / `store.share(...)`. Code that called those helpers directly must drop them.
+* Fixed dartdoc examples that referenced removed/incorrect APIs (`store.shard`, `context.bindWith`, a non-existent `DisposeStateAwareMixin`).
 
 ## 0.1.0
 * **BREAKING**: Instance lifetime is now declared on the provider. `Store.shared()` is removed — define store-lifetime instances with `Provider.shared(...)` / `ViewModelProvider.shared(...)` and read them via the scope-free, statically typed `Store.read` / `context.read`. Scoped providers keep using `bind` / `bindWith`.
