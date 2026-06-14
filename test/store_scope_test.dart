@@ -46,7 +46,7 @@ void main() {
 
     test('should create and read shared instance', () {
       final sharedProvider = Provider.shared((space) => 'shared');
-      final instance = store.read(sharedProvider);
+      final instance = store.share(sharedProvider);
       expect(instance, 'shared');
       expect(store.exists(sharedProvider), isTrue);
     });

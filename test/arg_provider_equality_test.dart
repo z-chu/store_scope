@@ -64,6 +64,38 @@ void main() {
       expect(identical(a, b), isTrue);
     });
 
+    test(
+      'mutating a collection arg after binding does not corrupt the store',
+      () {
+        // The cache key is deep-frozen at construction, so mutating the caller's
+        // collection afterwards must not change the provider's hashCode and
+        // orphan its entry in the store's maps.
+        final store = StoreImpl();
+        var disposed = 0;
+        final f = Provider.withArgument(
+          (space, List<int> ids) => Object(),
+          disposer: (_) => disposed++,
+        );
+        final key = [1, 2];
+        final scope = DisposeStateNotifier();
+        final p = f(key);
+        final a = store.bindWith(p, scope);
+
+        key.add(3); // mutate the caller's collection AFTER binding
+
+        expect(store.exists(p), isTrue, reason: 'entry not orphaned');
+        expect(
+          identical(store.bindWith(f([1, 2]), scope), a),
+          isTrue,
+          reason: 'equal (original) args still resolve to the cached instance',
+        );
+
+        scope.dispose();
+        expect(store.exists(p), isFalse, reason: 'unbind succeeded');
+        expect(disposed, 1);
+      },
+    );
+
     test('ViewModelProvider.withArgument2 preserves List deep equality', () {
       final f = ViewModelProvider.withArgument2(
         (space, List<int> list, int page) => _ArgVm(),

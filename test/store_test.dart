@@ -33,11 +33,14 @@ void main() {
     // 手动测试 GC 行为（不稳定，仅供参考）
     test('temporary instance lifecycle with forced GC', () async {
       var instanceDisposed = false;
-      final disposableProvider = Provider.from((space) {
-        return DisposableTestClass();
-      }, disposer: (instance) {
-        instanceDisposed = true;
-      });
+      final disposableProvider = Provider.from(
+        (space) {
+          return DisposableTestClass();
+        },
+        disposer: (instance) {
+          instanceDisposed = true;
+        },
+      );
 
       // 创建临时实例
       store.temporary(disposableProvider);
@@ -53,7 +56,6 @@ void main() {
       // 在实际项目中，更多依赖集成测试而不是单元测试
       expect(instanceDisposed, isTrue);
       expect(store.exists(disposableProvider), isFalse);
-
     });
   });
 }
@@ -61,7 +63,6 @@ void main() {
 // 辅助类用于测试
 class DisposableTestClass {
   DisposableTestClass();
-
 }
 
 // 尝试强制 GC（仅用于测试，不保证有效）
