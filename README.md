@@ -1,331 +1,458 @@
 [![pub.dev Version (including pre-releases)](https://img.shields.io/pub/v/store_scope?include_prereleases)](https://pub.dev/packages/store_scope)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![zread](https://img.shields.io/badge/Ask_Zread-_.svg?style=flat&color=00b0aa&labelColor=000000&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQuOTYxNTYgMS42MDAxSDIuMjQxNTZDMS44ODgxIDEuNjAwMSAxLjYwMTU2IDEuODg2NjQgMS42MDE1NiAyLjI0MDFWNC45NjAxQzEuNjAxNTYgNS4zMTM1NiAxLjg4ODEgNS42MDAxIDIuMjQxNTYgNS42MDAxSDQuOTYxNTZDNS4zMTUwMiA1LjYwMDEgNS42MDE1NiA1LjMxMzU2IDUuNjAxNTYgNC45NjAxVjIuMjQwMUM1LjYwMTU2IDEuODg2NjQgNS4zMTUwMiAxLjYwMDEgNC45NjE1NiAxLjYwMDFaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00Ljk2MTU2IDEwLjM5OTlIMi4yNDE1NkMxLjg4ODEgMTAuMzk5OSAxLjYwMTU2IDEwLjY4NjQgMS42MDE1NiAxMS4wMzk5VjEzLjc1OTlDMS42MDE1NiAxNC4xMTM0IDEuODg4MSAxNC4zOTk5IDIuMjQxNTYgMTQuMzk5OUg0Ljk2MTU2QzUuMzE1MDIgMTQuMzk5OSA1LjYwMTU2IDE0LjExMzQgNS42MDE1NiAxMy43NTk5VjExLjAzOTlDNS42MDE1NiAxMC42ODY0IDUuMzE1MDIgMTAuMzk5OSA0Ljk2MTU2IDEwLjM5OTlaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik0xMy43NTg0IDEuNjAwMUgxMS4wMzg0QzEwLjY4NSAxLjYwMDEgMTAuMzk4NCAxLjg4NjY0IDEwLjM5ODQgMi4yNDAxVjQuOTYwMUMxMC4zOTg0IDUuMzEzNTYgMTAuNjg1IDUuNjAwMSAxMS4wMzg0IDUuNjAwMUgxMy43NTg0QzE0LjExMTkgNS42MDAxIDE0LjM5ODQgNS4zMTM1NiAxNC4zOTg0IDQuOTYwMVYyLjI0MDFDMTQuMzk4NCAxLjg4NjY0IDE0LjExMTkgMS42MDAxIDEzLjc1ODQgMS42MDAxWiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNCAxMkwxMiA0TDQgMTJaIiBmaWxsPSIjZmZmIi8%2BCjxwYXRoIGQ9Ik00IDEyTDEyIDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K&logoColor=ffffff)](https://zread.ai/z-chu/store_scope)
 
-# StoreScope
+# store_scope
 
-一个轻量级的 Flutter 状态管理库，专注于提供简洁的状态生命周期管理和局部状态管理。
+**Flutter's Jetpack ViewModel** — widget-tree-scoped dependency injection with
+automatic disposal, zero codegen, no global singletons, and bring-your-own
+reactivity.
 
-## 特性
+> 📖 中文文档见 [README.zh-CN.md](README.zh-CN.md)
 
-- 🚀 简洁的状态生命周期管理
-- 🔄 基于 Widget 树的局部状态管理
-- 🔗 支持状态之间的相互依赖
-- 🧹 自动管理状态的生命周期和资源释放
-- 🎯 专注于状态管理，不包含响应式机制
-
-## 快速开始
-
-
-### 1. 在应用的根 Widget 中添加 StoreScope:
+If you've shipped Android or iOS, you already know the mental model: a
+`ViewModel` that's tied to a screen, runs `init()`, and is cleaned up
+automatically when the screen goes away. `store_scope` brings exactly that to
+Flutter — a small DI container scoped to the widget tree — and stops there. It
+doesn't pick your reactivity layer, doesn't generate code, and never puts your
+objects in a global locator.
 
 ```dart
-void main() {
-  runApp(
-    StoreScope(
-      child: MyApp(),
-    ),
-  );
-}
-```
+final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
 
-### 2. 创建简单的状态类:
-
- 使用 ValueNotifier 创建响应式状态:
-
-```dart
-class Counter {
-  final _count = ValueNotifier<int>(0);
-  ValueNotifier<int> get count => _count;
-  
-  void increment() {
-    _count.value++;
-  }
-}
-```
-
-### 3. 创建 Provider:
-
-```dart
-// 作用域实例：跟随绑定它的页面/Widget，最后一个使用者销毁时自动析构（见方式二）
-final counterProvider = Provider.from(
-  (space) => Counter(),
-);
-
-// 全局实例：跟随 Store 生命周期，直到 StoreScope 被移除；用 context.read 读取（见方式一）
-final sharedCounterProvider = Provider.shared(
-  (space) => Counter(),
-);
-```
-
-
-### 4. 在页面中使用响应式状态:
-
-#### 方式一：使用 Provider.shared + context.read（全局状态）
-
-```dart
-class Home extends StatelessWidget {
-
-  @override
-  Widget build(context) {
-    // 用 read 读取全局实例，它会一直存在于内存中，直到 StoreScope 被移除
-    var counter = context.read(sharedCounterProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: ValueListenableBuilder<int>(
-          valueListenable: counter.count,
-          builder: (_, count, __) {
-            return Text('Count: $count');
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add), 
-        onPressed: counter.increment
-      ),
-    );
-  }
-}
-
-
-class Other extends StatelessWidget {
-
-   @override
-  Widget build(BuildContext context) {
-    // 在其他页面中也可以访问同一个全局状态
-    final counter = context.read(sharedCounterProvider);
-    
-    return Scaffold(
-      body: Center(
-        child: ValueListenableBuilder<int>(
-          valueListenable: counter.count,
-          builder: (_, count, __) {
-            return Text('Count: $count');
-          },
-        ),
-      ),
-    );
-  }
-}
-```
-
-#### 方式二：使用 bind（自动销毁）
-
-```dart
-class Home extends StatelessWidget with ScopedSpaceStatelessMixin{
+class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+  const CounterPage({super.key});
 
   @override
   Widget buildWithSpace(BuildContext context, StoreSpace space) {
-    // 在所有绑定的页面销毁时自动释放counter
-    var counter = space.bind(counterProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: ValueListenableBuilder<int>(
-          valueListenable: counter.count,
-          builder: (_, count, __) {
-            return Text('Count: $count');
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add), 
-        onPressed: counter.increment
-      ),
-    );
-  }
-}
-
-
-class Other extends StatelessWidget with ScopedSpaceStatelessMixin{
-
-  @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
-    // 在所有绑定的页面销毁时自动释放counter
-    var counter = space.bind(counterProvider);
-    
-    return Scaffold(
-      body: Center(
-        child: ValueListenableBuilder<int>(
-          valueListenable: counter.count,
-          builder: (_, count, __) {
-            return Text('Count: $count');
-          },
-        ),
-      ),
+    final vm = space.bind(counterProvider); // created here, disposed with this widget
+    return ValueListenableBuilder<int>(
+      valueListenable: vm.count,
+      builder: (_, value, __) => Text('$value'),
     );
   }
 }
 ```
 
+## Why store_scope?
 
+Most Flutter state solutions force a package deal: pick the library and you also
+inherit its reactivity model, its codegen, or its global state. `store_scope`
+unbundles the one piece that's genuinely hard — **scoped lifetime and
+dependency injection** — and leaves the rest to you.
 
+| Capability | store_scope | Riverpod | get_it | provider | GetX |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Widget-tree-scoped auto-disposal | ✅ | ✅ | ❌ | ⚠️ manual | ⚠️ |
+| Real DI container (compose deps) | ✅ | ✅ | ✅ | ❌ type-keyed | ✅ global |
+| Jetpack-style `ViewModel` (`init`/`dispose`) | ✅ | ❌ | ❌ | ❌ | ⚠️ controller |
+| Argument families | ✅ `withArgument` | ✅ `family` | ⚠️ params | ❌ | ⚠️ |
+| Zero codegen | ✅ | ❌ codegen is the path | ✅ | ✅ | ✅ |
+| Reactivity-agnostic | ✅ | ❌ `AsyncValue`/`ref.watch` | ✅ none | ❌ `ChangeNotifier` | ❌ `Obx`/Rx |
+| No global singletons | ✅ | ✅ | ❌ locator | ✅ | ❌ global |
+| Test injection / overrides | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ |
 
-## 高级用法
+`store_scope` is the only option that ticks *all* of: tree-scoped auto-disposal
+**+** a real DI container **+** a familiar ViewModel **+** zero codegen **+**
+reactivity-agnostic **+** no global singletons. Signal/bloc/ValueNotifier fans
+keep their reactivity; native developers keep their ViewModel.
 
-### 带参数的 Provider
-```dart
-// 定义带参数的 Provider
-final userProvider = Provider.withArgument<User, int>((space, int userId) {
-  return User(userId: userId);
-});
- 
-// 使用
-final user = space.bind(userProvider(42));
+## Install
+
+```yaml
+dependencies:
+  store_scope: ^0.2.0
 ```
 
-### 状态依赖
+## Quick start
+
+**1. Wrap your app once.** The `StoreScope` owns a `Store` for everything below
+it.
+
 ```dart
-final userProfileProvider = ViewModelProvider((space) {
-  final user = space.bind(userProvider(42));
-  final settings = space.bind(settingsProvider);
-  return UserProfileViewModel(user, settings);
-});
+void main() => runApp(const StoreScope(child: MyApp()));
 ```
 
-## ViewModel
-ViewModel 是 StoreScope 中的核心组件，它提供了完整的状态生命周期管理和资源清理机制.
+**2. Hold state in a `ViewModel`** (or any plain class). Reactivity is yours —
+here a built-in `ValueNotifier`.
 
-#### 1. 生命周期管理
 ```dart
-class CounterViewModel extends ViewModel {
-  final _count = ValueNotifier<int>(0);
-  ValueNotifier<int> get count => _count;
-  
+class CounterVm extends ViewModel {
+  final count = ValueNotifier(0);
+
   @override
   void init() {
     super.init();
-    // 初始化逻辑，比如订阅数据流、初始化状态等
-    _count.value = 10; // 设置初始值
+    addCloseable(count.dispose); // cleaned up automatically
   }
-  
-  void increment() => _count.value++;
-  
+
+  void increment() => count.value++;
+}
+```
+
+**3. Define a provider** — its lifetime is declared here, once.
+
+```dart
+// Scoped: disposed when the last widget that bound it is gone.
+final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
+```
+
+**4. Bind it to a widget's scope** and read reactively.
+
+```dart
+class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+  const CounterPage({super.key});
+
+  @override
+  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+    final vm = space.bind(counterProvider);
+    return Scaffold(
+      body: Center(
+        child: ValueListenableBuilder<int>(
+          valueListenable: vm.count,
+          builder: (_, value, __) => Text('Count: $value'),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: vm.increment,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+```
+
+When `CounterPage` leaves the tree, its scope dies, `CounterVm.dispose()` runs,
+and the `ValueNotifier` is closed. No manual cleanup, no `dispose()` plumbing in
+your `State`.
+
+## Core concepts
+
+### Store & StoreScope
+
+A `Store` is a DI container: a map of providers to their live instances. A
+`StoreScope` widget creates and owns one for its subtree; when that widget is
+removed, the store **unmounts** and every instance it holds is disposed.
+
+```dart
+StoreScope(child: MyApp());                 // default store
+StoreScope(overrides: [...], child: ...);   // with test doubles (see Testing)
+StoreScope(storeOwner: myOwner, child: ...);// bring your own store owner
+```
+
+Read the store from any descendant context:
+
+```dart
+context.store;          // the nearest Store (throws if none)
+context.storeOrNull;    // or null
+context.storeMounted;   // bool
+```
+
+### Providers & lifetimes
+
+A **provider** is a recipe for an instance. **Lifetime is a property of the
+definition, not of the call site** — you decide once, when you declare it.
+
+```dart
+// Scoped — reference-counted, disposed when the last binding scope dies.
+final repoProvider = Provider.from((space) => Repository());
+
+// Store-lifetime — a lazy singleton kept until the StoreScope unmounts.
+final authProvider = Provider.shared((space) => Auth());
+```
+
+| Lifetime | Define with | Acquire with |
+| --- | --- | --- |
+| **Widget / page** | `Provider.from` | `space.bind(p)` |
+| **Feature / flow** (spans several pages) | `Provider.from` | `store.bindWith(p, featureScope)` — a `DisposeStateNotifier` you dispose when the flow ends |
+| **App** | `Provider.shared` | `store.share(p)` / `context.share(p)` |
+
+`Store.share` accepts only a store-lifetime provider (it's statically typed to a
+`SharedProvider`), so you can never accidentally read a scoped provider without
+a scope.
+
+### Acquiring instances: `bind` vs `share`
+
+```dart
+// Scoped: tracked by `scope`; when the last scope is disposed, so is the instance.
+final repo = space.bind(repoProvider);
+final repo = store.bindWith(repoProvider, someListenable);
+
+// Store-lifetime: no scope required.
+final auth = store.share(authProvider);
+final auth = context.share(authProvider);
+```
+
+### Arguments (families)
+
+`Provider.withArgument` builds a family keyed by the argument's **value**
+(deep-compared, so `List`/`Map`/`Set` arguments work as keys). `withArgument`
+through `withArgument6` cover up to six positional arguments.
+
+```dart
+final userProvider = Provider.withArgument<User, int>(
+  (space, id) => User(id),
+);
+
+final user = space.bind(userProvider(42)); // scoped to this widget
+```
+
+Add **`.asShared`** at the definition site to make the family store-lifetime —
+one instance per distinct argument, kept until the store unmounts:
+
+```dart
+final userProvider =
+    Provider.withArgument<User, int>((space, id) => User(id)).asShared;
+
+final user = store.share(userProvider(42)); // per-id singleton
+// userProvider(42) and userProvider(7) are different instances.
+```
+
+> A given factory is either scoped (`bind`) or shared (`.asShared`) — chosen
+> once at definition, never mixed at call sites.
+
+### ViewModel
+
+`ViewModel` is a Jetpack-style holder with deterministic teardown.
+
+```dart
+class FeedVm extends ViewModel {
+  final items = ValueNotifier<List<Item>>([]);
+  Timer? _timer;
+
+  @override
+  void init() {
+    super.init();
+
+    // Auto-cancel a subscription:
+    addSubscription(repo.stream.listen(_onData));
+
+    // Run any teardown callback:
+    addCloseable(items.dispose);
+
+    // Keyed teardown — adding the same key disposes the previous one first:
+    addKeyedCloseable('poll', () => _timer?.cancel());
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => refresh());
+  }
+
   @override
   void dispose() {
-    _count.dispose(); // 清理资源
-    super.dispose(); // 必须调用 super.dispose()
+    // your own cleanup, then:
+    super.dispose(); // runs every closeable / subscription
+  }
+}
+
+final feedProvider = ViewModelProvider<FeedVm>((space) => FeedVm());
+final appFeedProvider = ViewModelProvider.shared<FeedVm>((space) => FeedVm());
+```
+
+`init()` runs on creation; `dispose()` (and every registered closeable) runs
+when the binding scope dies or the store unmounts. `ViewModelProvider` also
+supports `.withArgument*` and `.asShared`, exactly like `Provider`.
+
+### Dependency composition (cascade disposal)
+
+A provider's body receives a `StoreSpace`, so it can `bind` its own
+dependencies. Children are bound to the *parent instance's* scope, which means
+**they're disposed together with the parent** — composition is just plain Dart,
+no graph DSL, fully debuggable.
+
+```dart
+final profileProvider = ViewModelProvider<ProfileVm>((space) {
+  final user = space.bind(userProvider(42));     // child
+  final settings = space.bind(settingsProvider); // child
+  return ProfileVm(user, settings);
+});
+// When ProfileVm is disposed, `user` and `settings` are released too.
+```
+
+### Scopes in the widget tree
+
+Pick whichever entry point fits the widget you're writing:
+
+```dart
+// StatelessWidget, get a StoreSpace:
+class A extends StatelessWidget with ScopedSpaceStatelessMixin {
+  @override
+  Widget buildWithSpace(BuildContext context, StoreSpace space) =>
+      Text(space.bind(p).label);
+}
+
+// StatefulWidget, get a StoreSpace via the `space` getter:
+class B extends StatefulWidget { /* ... */ }
+class _BState extends State<B> with ScopedSpaceStateMixin {
+  @override
+  Widget build(BuildContext context) => Text(space.bind(p).label);
+}
+
+// Inline, no new class:
+ScopedBuilder(
+  builder: (context, space, child) => Text(space.bind(p).label),
+);
+```
+
+`ScopedStatelessMixin` / `ScopedStateMixin` expose a raw `Listenable scope`
+instead of a `StoreSpace`, for use with `context.store.bindWith(p, scope)`.
+
+**`AutoStoreWidget`** owns a *fresh* `Store` for its own subtree (handy for a
+self-contained page or flow):
+
+```dart
+class FeaturePage extends AutoStoreWidget {
+  const FeaturePage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.share(featureVmProvider); // lives as long as this page
+    return /* ... */;
   }
 }
 ```
 
-#### 2. 资源自动管理
-ViewModel 提供了多种方式管理资源的生命周期：
+## Reactivity is yours
+
+`store_scope` ships **no** reactivity. It manages *what* objects exist and *for
+how long*; *how the UI updates* is entirely your choice. A few recipes:
+
+**ValueNotifier** (built in):
 
 ```dart
-class NetworkViewModel extends ViewModel {
-  Timer? _timer;
-  StreamSubscription? _subscription;
-  
+class CounterVm extends ViewModel {
+  final count = ValueNotifier(0);
   @override
-  void init() {
-    super.init();
-    
-    // 方式一：添加订阅，自动取消
-    _subscription = someStream.listen((data) {
-      // 处理数据
-    });
-    addSubscription(_subscription!);
-    
-    // 方式二：添加任意可关闭资源
-    addCloseable(() {
-      print('清理自定义资源');
-    });
-    
-    // 方式三：带键的资源管理
-    addKeyedCloseable('timer', () {
-      _timer?.cancel();
-    });
-    
-    // 如果添加了同键的资源，旧的会被立即清理
-    addKeyedCloseable('timer', () {
-      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-        // 新的定时器逻辑
-      });
-    });
-  }
-}
-```
-#### 3. 使用ViewModelProvider：
-```dart
-final viewModelProvider = ViewModelProvider((space) => CounterViewModel());
- 
-// 使用
-final viewModel = space.bind(viewModelProvider);
-// 这将自动调用 ViewModel 的 init() 
-// 当销毁时也会自动调用 ViewModel 的 dispose()
-```
-#### 4.带参数的 ViewModelProvide
-```dart
-// 单参数
-final userViewModelProvider = ViewModelProvider.withArgument<UserViewModel, int>(
-  (space, int userId) => UserViewModel(userId),
-);
- 
-// 双参数
-final productViewModelProvider = ViewModelProvider.withArgument2<ProductViewModel, String, int>(
-  (space, String category, int page) => ProductViewModel(category, page),
-);
-
-//更多参数也支持
- 
-// 使用
-final userVM = space.bind(userViewModelProvider(42));
-final productVM = space.bind(productViewModelProvider('electronics', 1));
-```
-## 测试：替换 Provider（Override）
-
-在测试中，可以用 override 把任意 Provider 替换成 fake/mock，无需改动业务代码。Override 通过 `StoreScope(overrides: ...)`（Widget 测试）或 `StoreImpl(overrides: ...)`（纯 Dart 测试）注入。
-
-```dart
-abstract class Repository {
-  Future<String> fetch();
+  void init() { super.init(); addCloseable(count.dispose); }
 }
 
-class FakeRepository implements Repository {
+ValueListenableBuilder<int>(
+  valueListenable: space.bind(counterProvider).count,
+  builder: (_, value, __) => Text('$value'),
+);
+```
+
+**signals** ([signals.dev](https://pub.dev/packages/signals)):
+
+```dart
+class CounterVm extends ViewModel {
+  final count = signal(0);
   @override
-  Future<String> fetch() async => 'fake data';
+  void init() { super.init(); addCloseable(count.dispose); }
 }
 
+Watch((_) => Text('${space.bind(counterProvider).count.value}'));
+```
+
+**flutter_bloc** — hold a Bloc/Cubit in a ViewModel:
+
+```dart
+class CounterVm extends ViewModel {
+  final cubit = CounterCubit();
+  @override
+  void init() { super.init(); addCloseable(cubit.close); }
+}
+
+BlocBuilder<CounterCubit, int>(
+  bloc: space.bind(counterProvider).cubit,
+  builder: (_, count) => Text('$count'),
+);
+```
+
+The pattern is always the same: keep your reactive primitive inside a
+`ViewModel`, register its teardown with `addCloseable`, and `store_scope`
+guarantees it's released at the right time.
+
+## Testing: override providers
+
+Swap any provider for a fake/mock without touching production code, via
+`StoreScope(overrides: ...)` (widget tests) or `StoreImpl(overrides: ...)`
+(pure-Dart tests).
+
+```dart
 final repositoryProvider =
     Provider.shared<Repository>((space) => RealRepository());
 
-testWidgets('使用 fake 数据', (tester) async {
+testWidgets('renders fake data', (tester) async {
   await tester.pumpWidget(
     StoreScope(
-      overrides: [
-        repositoryProvider.overrideWithValue(FakeRepository()),
-      ],
+      overrides: [repositoryProvider.overrideWithValue(FakeRepository())],
       child: const MyApp(),
     ),
   );
   // ...
 });
+
+test('pure Dart', () {
+  final store = StoreImpl(
+    overrides: [repositoryProvider.overrideWith((space) => FakeRepository())],
+  );
+  expect(store.share(repositoryProvider), isA<FakeRepository>());
+});
 ```
 
-两种构造方式：
+- **`overrideWithValue(fake)`** — returns a ready-made instance. The store
+  **never creates or disposes it**; you own its lifecycle. The usual way to
+  inject a mock.
+- **`overrideWith((space) => fake, dispose: ...)`** — replaces the creation
+  logic with a plain instance. Note: when overriding a `ViewModelProvider`,
+  `init()` / `dispose()` are **not** called automatically — pass
+  `dispose: (vm) => vm.dispose()` if you want teardown.
 
-- `overrideWithValue(fake)`：直接返回一个现成实例，**Store 不会创建也不会析构它**，生命周期由你自己掌控。注入 mock 的首选。
-- `overrideWith((space) => fake, dispose: ...)`：替换创建逻辑，按普通实例处理。注意替换 `ViewModelProvider` 时，fake 的 `init()` / `dispose()` **不会**被自动调用——如需析构，显式传 `dispose: (vm) => vm.dispose()`。
-
-> 带参数的 Provider 按**具体参数**匹配：`userProvider(42).overrideWithValue(...)` 只覆盖 `userProvider(42)`，`userProvider(7)` 仍走真实实现。
+> Argument providers match by **value**: `userProvider(42).overrideWithValue(...)`
+> overrides only `userProvider(42)`; `userProvider(7)` still uses the real one.
 >
-> override 在 Store 创建时读取一次；运行期更换需要给 `StoreScope` 一个新的 `key`（或新的 `storeOwner`）以重建 Store。
+> Overrides are read once when the store is created. To swap them at runtime,
+> give the `StoreScope` a new `key` (or `storeOwner`) so the store is rebuilt.
 
-## 关于响应式
+## Lifecycle at a glance
 
-StoreScope 本身不包含任何响应式机制。它专注于状态管理，让响应式库可以专注于它们擅长的部分。你可以：
+- **Scoped** instances are reference-counted across every scope that binds
+  them; the instance is disposed only when the **last** scope is gone.
+- **Store-lifetime** (`shared`) instances are never tied to a widget scope; they
+  live until the `StoreScope` unmounts.
+- Removing a `StoreScope` unmounts its store and disposes **every** instance —
+  shared and scoped alike.
+- `ViewModel.dispose()` and all `addCloseable` / `addSubscription` /
+  `addKeyedCloseable` callbacks run deterministically at disposal.
 
-1. 使用内置的响应式类：
-   - ValueNotifier
-   - ChangeNotifier
+## API cheatsheet
 
-2. 使用第三方响应式库：
-   - solidart
-   - signals
-   - flutter_bloc
-   - 等等
+| | |
+| --- | --- |
+| `StoreScope({child, overrides, storeOwner})` | Owns a `Store` for the subtree |
+| `Provider.from((space) => x)` | Scoped provider |
+| `Provider.shared((space) => x)` | Store-lifetime provider |
+| `Provider.withArgument<T, A>(...)` | Argument family (`…2`–`…6`) |
+| `factory.asShared` | Make an argument family store-lifetime |
+| `ViewModelProvider<T>((space) => vm)` | Scoped ViewModel (+ `.shared`, `.withArgument*`, `.asShared`) |
+| `space.bind(p)` | Acquire scoped to this space |
+| `store.bindWith(p, listenable)` | Acquire scoped to any `Listenable` |
+| `store.share(p)` / `context.share(p)` | Acquire a store-lifetime instance |
+| `p.overrideWithValue(v)` / `p.overrideWith(...)` | Test doubles |
+| `ScopedSpaceStatelessMixin` / `ScopedSpaceStateMixin` | Get a `StoreSpace` in a widget |
+| `ScopedStatelessMixin` / `ScopedStateMixin` | Get a raw `Listenable scope` |
+| `ScopedBuilder` | Inline scoped builder |
+| `AutoStoreWidget` / `AutoStoreStatefulWidget` | A widget that owns its own store |
+| `DisposeStateNotifier` | A disposable `Listenable` to use as a custom scope |
 
-这样的设计让 StoreScope 保持简单和专注，同时又能与任何响应式库完美配合。
+## Example
 
-## 更多介绍
+A runnable demo lives in [`example/`](example). On-device integration tests
+covering every feature are in
+[`example/integration_test/`](example/integration_test) — run them with:
 
-请查看 https://zread.ai/z-chu/store_scope
+```bash
+cd example && flutter test integration_test -d <device-id>
+```
+
+## Contributing
+
+Issues and PRs are welcome. The package has no codegen and no runtime
+dependencies beyond Flutter and `equatable`; `flutter test` runs the unit suite,
+and `flutter test integration_test` (in `example/`) runs the on-device suite.
+
+## License
+
+[MIT](LICENSE)
+
+## Learn more
+
+- Interactive docs & Q&A: <https://zread.ai/z-chu/store_scope>
+- 中文文档: [README.zh-CN.md](README.zh-CN.md)
