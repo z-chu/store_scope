@@ -271,6 +271,45 @@ final productViewModelProvider = ViewModelProvider.withArgument2<ProductViewMode
 final userVM = space.bind(userViewModelProvider(42));
 final productVM = space.bind(productViewModelProvider('electronics', 1));
 ```
+## 测试：替换 Provider（Override）
+
+在测试中，可以用 override 把任意 Provider 替换成 fake/mock，无需改动业务代码。Override 通过 `StoreScope(overrides: ...)`（Widget 测试）或 `StoreImpl(overrides: ...)`（纯 Dart 测试）注入。
+
+```dart
+abstract class Repository {
+  Future<String> fetch();
+}
+
+class FakeRepository implements Repository {
+  @override
+  Future<String> fetch() async => 'fake data';
+}
+
+final repositoryProvider =
+    Provider.shared<Repository>((space) => RealRepository());
+
+testWidgets('使用 fake 数据', (tester) async {
+  await tester.pumpWidget(
+    StoreScope(
+      overrides: [
+        repositoryProvider.overrideWithValue(FakeRepository()),
+      ],
+      child: const MyApp(),
+    ),
+  );
+  // ...
+});
+```
+
+两种构造方式：
+
+- `overrideWithValue(fake)`：直接返回一个现成实例，**Store 不会创建也不会析构它**，生命周期由你自己掌控。注入 mock 的首选。
+- `overrideWith((space) => fake, dispose: ...)`：替换创建逻辑，按普通实例处理。注意替换 `ViewModelProvider` 时，fake 的 `init()` / `dispose()` **不会**被自动调用——如需析构，显式传 `dispose: (vm) => vm.dispose()`。
+
+> 带参数的 Provider 按**具体参数**匹配：`userProvider(42).overrideWithValue(...)` 只覆盖 `userProvider(42)`，`userProvider(7)` 仍走真实实现。
+>
+> override 在 Store 创建时读取一次；运行期更换需要给 `StoreScope` 一个新的 `key`（或新的 `storeOwner`）以重建 Store。
+
 ## 关于响应式
 
 StoreScope 本身不包含任何响应式机制。它专注于状态管理，让响应式库可以专注于它们擅长的部分。你可以：

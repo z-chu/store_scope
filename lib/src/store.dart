@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'dispose_state_notifier.dart';
 import 'provider.dart';
 import 'store_scope_config.dart';
+import 'store_space.dart';
 
 part 'store_impl.dart';
+part 'override.dart';
 
 /// A Store is responsible for managing provider instances and their dependencies.
 /// It acts as a central repository for shared state management.

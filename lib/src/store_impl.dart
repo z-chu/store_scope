@@ -6,6 +6,16 @@ class StoreImpl implements UnmountableStore {
   final Map<ProviderBase<dynamic>, Map<Listenable, VoidCallback>>
   _listenerCallbacks = {};
 
+  /// Replacement providers keyed by the provider they override (test/DI doubles).
+  final Map<ProviderBase<dynamic>, ProviderBase<dynamic>> _overrides;
+
+  StoreImpl({List<Override<dynamic>> overrides = const []})
+    : assert(
+        overrides.map((o) => o.target).toSet().length == overrides.length,
+        'Duplicate override target: each provider can be overridden at most once.',
+      ),
+      _overrides = {for (final o in overrides) o.target: o.replacement};
+
   bool _mounted = true;
 
   @override
@@ -71,7 +81,7 @@ Store unmounted:
   T _getOrCreateInstance<T>(ProviderBase<T> provider) {
     var instance = _instances[provider];
     if (instance == null) {
-      instance = provider.create(this);
+      instance = (_overrides[provider] ?? provider).create(this);
       _instances[provider] = instance;
       _log('"${instance.runtimeType}" instance created');
     }
@@ -138,7 +148,7 @@ Store unmounted:
 
   void _disposeProviderInstance<T>(ProviderBase<T> provider, T instance) {
     try {
-      provider.dispose(this, instance);
+      (_overrides[provider] ?? provider).dispose(this, instance);
     } catch (e) {
       _log('Error disposing ${instance.runtimeType}: $e', isError: true);
     }

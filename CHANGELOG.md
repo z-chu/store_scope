@@ -1,3 +1,6 @@
+## 0.1.1
+* Add provider overrides for tests/DI. Inject fakes via `StoreScope(overrides: [...])` or `StoreImpl(overrides: [...])`, built with `provider.overrideWithValue(fake)` (caller owns the instance's lifecycle) or `provider.overrideWith((space) => fake, dispose: ...)`.
+
 ## 0.1.0
 * **BREAKING**: Instance lifetime is now declared on the provider. `Store.shared()` is removed — define store-lifetime instances with `Provider.shared(...)` / `ViewModelProvider.shared(...)` and read them via the scope-free, statically typed `Store.read` / `context.read`. Scoped providers keep using `bind` / `bindWith`.
 * Fix: `Store.unmount()` now disposes every instance; ViewModels and their subscriptions were previously leaked on teardown.

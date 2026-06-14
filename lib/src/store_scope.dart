@@ -24,10 +24,27 @@ part 'auto_store_widgets.dart';
 /// ```
 class StoreScope extends StatefulWidget {
   final StoreOwner? storeOwner;
+
+  /// Provider overrides (e.g. fakes/mocks for tests) applied to the default
+  /// store. Ignored when a custom [storeOwner] is supplied.
+  ///
+  /// Read **once** when the store is created; changing this list on a later
+  /// rebuild has no effect. To swap overrides at runtime, give the [StoreScope]
+  /// a new [key] (or [storeOwner]) so the store is rebuilt.
+  final List<Override<dynamic>> overrides;
+
   final Widget child;
 
   /// Creates a [StoreScope] with a default store implementation.
-  const StoreScope({super.key, this.storeOwner, required this.child});
+  const StoreScope({
+    super.key,
+    this.storeOwner,
+    this.overrides = const [],
+    required this.child,
+  }) : assert(
+         storeOwner == null || overrides.length == 0,
+         'StoreScope.overrides are ignored when a custom storeOwner is provided.',
+       );
 
   @override
   State<StoreScope> createState() => _StoreScopeState();
@@ -36,10 +53,17 @@ class StoreScope extends StatefulWidget {
 class _StoreScopeState extends State<StoreScope> {
   late StoreOwner _storeOwner;
 
+  /// Resolves the store owner from the current widget: the supplied
+  /// [StoreScope.storeOwner], or a default store carrying the widget's
+  /// [StoreScope.overrides].
+  StoreOwner _resolveStoreOwner() =>
+      widget.storeOwner ??
+      StoreOwnerImpl(StoreImpl(overrides: widget.overrides));
+
   @override
   void initState() {
     super.initState();
-    _storeOwner = widget.storeOwner ?? StoreOwnerImpl(StoreImpl());
+    _storeOwner = _resolveStoreOwner();
   }
 
   Store get _store => _storeOwner.store;
@@ -62,7 +86,7 @@ class _StoreScopeState extends State<StoreScope> {
     super.didUpdateWidget(oldWidget);
     if (widget.storeOwner != oldWidget.storeOwner) {
       final oldStoreOwner = _storeOwner;
-      _storeOwner = widget.storeOwner ?? StoreOwnerImpl(StoreImpl());
+      _storeOwner = _resolveStoreOwner();
 
       if (oldStoreOwner.store.mounted) {
         oldStoreOwner.unmountStore();
