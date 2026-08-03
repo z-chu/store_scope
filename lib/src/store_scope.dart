@@ -63,8 +63,12 @@ class StoreScope extends StatefulWidget {
   /// store. Ignored when a custom [storeOwner] is supplied.
   ///
   /// Each [Override] is installed at creation time: `overrideWithValue(v)`
-  /// injects a ready instance the store never disposes, while
-  /// `overrideWith((space) => x)` replaces the provider's creation logic.
+  /// injects a ready instance, while `overrideWith((space) => x)` replaces the
+  /// provider's creation logic with a factory that can `space.bind` its own
+  /// dependencies. In both cases the store only *returns* the instance — it
+  /// runs no lifecycle on it, so an overridden `ViewModelProvider` does not
+  /// `init()` or `dispose()` the fake. See `ProviderOverride` for the rule and
+  /// for how to test the real lifecycle.
   ///
   /// Read **once** when the store is created; changing this list on a later
   /// rebuild has no effect. To swap overrides at runtime, give the [StoreScope]

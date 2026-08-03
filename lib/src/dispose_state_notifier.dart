@@ -52,19 +52,23 @@ class DisposeStateNotifier extends ChangeNotifier {
 
   /// Marks this notifier as disposed and notifies its listeners.
   ///
-  /// On the first call this flips [disposed] to `true` and calls
-  /// `notifyListeners()` once, signalling every listener that the scope is now
-  /// invalid. Subsequent calls are no-ops with respect to listeners — the
-  /// notification fires exactly once over the lifetime of the object.
+  /// On the first call this flips [disposed] to `true`, calls
+  /// `notifyListeners()` once — signalling every listener that the scope is now
+  /// invalid — and then releases the underlying [ChangeNotifier].
   ///
-  /// Always delegates to `super.dispose()` to release the underlying
-  /// [ChangeNotifier] resources.
+  /// **Fully idempotent:** every later call returns immediately. This matters
+  /// because scopes are torn down defensively — an owner disposing its scope in
+  /// its own `dispose()` while something else already released it is normal,
+  /// and `ChangeNotifier.dispose()` would otherwise assert on the second call
+  /// (in debug only, so the crash would appear in development and vanish in
+  /// release). It also makes re-entrancy safe: a listener that disposes the
+  /// scope again from inside `notifyListeners()` is a no-op rather than a
+  /// "dispose() called during notifyListeners()" assertion.
   @override
   void dispose() {
-    if (!_disposed) {
-      _disposed = true;
-      notifyListeners();
-    }
+    if (_disposed) return;
+    _disposed = true;
+    notifyListeners();
     super.dispose();
   }
 

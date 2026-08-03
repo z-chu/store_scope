@@ -71,6 +71,12 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   /// Override it to start subscriptions, kick off loads, or register cleanup
   /// with [addCloseable] / [addKeyedCloseable] / [addSubscription]. The default
   /// implementation does nothing.
+  ///
+  /// **Not called on an injected fake.** A ViewModel supplied through
+  /// `overrideWithValue` / `overrideWith` is handed to the store ready-made, so
+  /// the store runs no lifecycle on it — call `fake.init()` yourself if the
+  /// test needs it. To exercise the real `init()`, override the ViewModel's
+  /// *dependencies* instead of the ViewModel (see `ProviderOverride`).
   void init() {}
 
   /// Releases every resource registered with [addCloseable],
@@ -78,11 +84,35 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   /// [ChangeNotifier].
   ///
   /// Called automatically by the provider when the binding scope dies or the
-  /// [Store] unmounts — do not call it yourself. The [scope] is disposed first
+  /// [Store] unmounts — do not call it yourself. The one exception is a fake
+  /// injected via `overrideWithValue` / `overrideWith`: the store never
+  /// disposes an overridden instance, so there the test owns the teardown
+  /// (`addTearDown(fake.dispose)`).
+  ///
+  /// **Assume dependencies are already gone by the time this runs.** When a
+  /// binding scope dies, teardown is inside-out: the provider releases this
+  /// instance's dependency cascade *first* — every child the creator acquired
+  /// with `space.bind`, for which this instance held the last binding — and
+  /// only then calls `dispose()`. So do not touch a bound dependency here (no
+  /// final `repo.flush()`); it has already been disposed. Register that work
+  /// with [addCloseable] on the dependency itself, or with a `disposer` on the
+  /// provider that owns it. (On [Store.unmount] there is no cascade at all and
+  /// the order is unspecified, so the same rule applies for a different
+  /// reason.)
+  ///
+  /// The [scope] is disposed first
   /// (so [disposed] becomes `true` before any callback runs), each callback is
   /// then invoked once on a snapshot of the collections, and `super.dispose()`
-  /// runs last so the notifier stays usable while callbacks execute. Errors
-  /// thrown by a callback are routed through [StoreScopeConfig].
+  /// runs last so the notifier stays usable while callbacks execute.
+  ///
+  /// **Teardown always runs to completion.** A callback that throws does not
+  /// abort the ones after it: every failure is collected, the remaining
+  /// callbacks and `super.dispose()` still run, and only then are the failures
+  /// reported through [StoreScopeConfig] (thrown when
+  /// `StoreScopeConfig.throwOnCloseError`, logged otherwise). What is rethrown
+  /// is the *original* error with its original stack trace — not a wrapper — so
+  /// a test can match on the type the callback actually threw. When several
+  /// callbacks fail only the first can be rethrown; the rest are logged.
   @override
   @mustCallSuper
   void dispose() {
@@ -90,16 +120,24 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
     // addCloseable/addKeyedCloseable 时会走"立即关闭"分支,不再 mutate 集合。
     // 再对集合做快照遍历(toList),双保险避免 ConcurrentModificationError。
     _viewModelScope.dispose();
+    // 收集失败而不是就地抛:一个 closeable 抛异常曾经会让后面所有 closeable、
+    // _keyToCloseables 整个循环、以及 super.dispose() 全部被跳过 —— notifier
+    // 带着 listener 泄漏,而 Store 的 try/catch 又把这个异常收成一行日志,
+    // 整件事完全不可见。析构必须先跑完,再报错。
+    final failures = <_CloseFailure>[];
     for (var closeable in _closeables.toList()) {
-      _closeWithException(closeable);
+      final failure = _runCloseable(closeable);
+      if (failure != null) failures.add(failure);
     }
     for (var closeable in _keyToCloseables.values.toList()) {
-      _closeWithException(closeable);
+      final failure = _runCloseable(closeable);
+      if (failure != null) failures.add(failure);
     }
     _keyToCloseables.clear();
     _closeables.clear();
     // super.dispose() 放最后:closeable 运行期间 ChangeNotifier 仍可用。
     super.dispose();
+    _reportCloseFailures(failures);
   }
 
   /// Registers a [StreamSubscription] to be cancelled when this ViewModel is
@@ -107,11 +145,17 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   ///
   /// Shorthand for `addCloseable(subscription.cancel)`. Call it from [init] to
   /// keep stream listeners tied to the ViewModel's lifetime.
+  ///
+  /// It really does delegate to [addCloseable], so a subscription handed over
+  /// after this ViewModel is already [disposed] is cancelled on the spot rather
+  /// than parked in a collection nothing drains again — the shape a load that
+  /// outlives its ViewModel produces.
   @protected
   void addSubscription(StreamSubscription subscription) {
-    _closeables.add(() {
-      subscription.cancel();
-    });
+    // A tear-off, not a wrapping closure: `subscription.cancel` compares equal
+    // across calls for the same subscription, so addCloseable's de-duplication
+    // actually applies to it.
+    addCloseable(subscription.cancel);
   }
 
   /// Adds a closeable resource to be disposed when the ViewModel is disposed.
@@ -165,34 +209,80 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
       _closeWithException(closeable);
       return;
     }
-    var oldCloseable = _keyToCloseables[key];
+    final oldCloseable = _keyToCloseables[key];
+    if (oldCloseable == closeable) return;
+    // 先登记再关闭旧的:反过来的话,旧回调一抛异常就会带着新回调一起丢
+    // ——新的从没进表(资源永远不会被释放),旧的还赖在表里,dispose() 时
+    // 再抛一次。而且那一抛是裸的,会直接穿到调用 addKeyedCloseable 的
+    // 业务代码里。
+    _keyToCloseables[key] = closeable;
     if (oldCloseable != null) {
-      if (oldCloseable == closeable) return;
       // 立即执行旧的 keyed closeable。注意:closeable 从不作为 listener 注册,
       // 因此无需(也不能)调用 removeListener。
-      oldCloseable.call();
+      _closeWithException(oldCloseable);
     }
-    _keyToCloseables[key] = closeable;
   }
 
-  void _closeWithException(VoidCallback closeable) {
-    try {
-      closeable();
-    } catch (error, stackTrace) {
-      if (StoreScopeConfig.throwOnCloseError) {
-        throw Exception(
-          'Failed to close $error\n'
-          'Stack trace:\n$stackTrace',
-        );
-      } else {
-        StoreScopeConfig.log(
-          'Failed to close $error\n'
-          'Stack trace:\n$stackTrace',
-          isError: true,
-        );
+  /// Runs [closeable] and captures the failure, or returns `null` on success.
+  /// Never throws — the caller decides when it is safe to surface the error, so
+  /// a failing callback can never abandon a teardown mid-way.
+  _CloseFailure? _runCloseable(VoidCallback closeable) => _capture(closeable);
+
+  /// Surfaces the collected [failures] per [StoreScopeConfig]: thrown when
+  /// `throwOnCloseError` is set (the debug default), logged otherwise.
+  void _reportCloseFailures(List<_CloseFailure> failures) {
+    if (failures.isEmpty) return;
+    if (StoreScopeConfig.throwOnCloseError) {
+      // Only one error can be thrown, so log the rest first — otherwise every
+      // failure after the first would be lost. The first is rethrown with its
+      // ORIGINAL type and stack trace: a wrapper carrying a stringified stack
+      // is far harder to read (and to match on in a test) than the error the
+      // callback actually threw.
+      for (final failure in failures.skip(1)) {
+        StoreScopeConfig.log('$failure', isError: true);
       }
+      Error.throwWithStackTrace(
+        failures.first.error,
+        failures.first.stackTrace,
+      );
+    }
+    // One call per failure, not one joined blob: joining buries everything
+    // after the first and breaks line-oriented log parsing.
+    for (final failure in failures) {
+      StoreScopeConfig.log('$failure', isError: true);
     }
   }
+
+  /// Runs [closeable] right now, surfacing a failure immediately. Used by the
+  /// "already disposed, close on registration" branches, where there is no
+  /// teardown in progress to protect.
+  void _closeWithException(VoidCallback closeable) {
+    final failure = _runCloseable(closeable);
+    if (failure != null) _reportCloseFailures([failure]);
+  }
+}
+
+/// Runs [action] and returns its failure instead of throwing, so the caller can
+/// finish the teardown before deciding when to surface the error.
+_CloseFailure? _capture(void Function() action) {
+  try {
+    action();
+    return null;
+  } catch (error, stackTrace) {
+    return _CloseFailure(error, stackTrace);
+  }
+}
+
+/// A cleanup callback that threw, captured with its original stack trace so the
+/// failure can be surfaced *after* the teardown has run to completion.
+class _CloseFailure {
+  _CloseFailure(this.error, this.stackTrace);
+
+  final Object error;
+  final StackTrace stackTrace;
+
+  @override
+  String toString() => 'Failed to close $error\nStack trace:\n$stackTrace';
 }
 
 /// Base class for any [Provider] whose instances are [ViewModel]s.
@@ -220,11 +310,29 @@ abstract class ViewModelProviderBase<T extends ViewModel> extends Provider<T> {
   /// Runs [ViewModel.dispose] and then [disposeViewModel] when the instance is
   /// torn down. Invoked by the [Store] once the last binding scope is gone (or
   /// the store unmounts); do not call it yourself.
+  ///
+  /// Both steps always run. A [ViewModel.dispose] that surfaces a cleanup
+  /// failure (which it does when `StoreScopeConfig.throwOnCloseError` is set)
+  /// must not skip the provider's own `disposer`, or teardown would silently
+  /// depend on that flag.
+  ///
+  /// They are captured rather than wrapped in `try`/`finally`, because a
+  /// `finally` that itself throws *replaces* the pending exception: a failing
+  /// `disposer` would silently swallow the ViewModel's own cleanup failure —
+  /// the more informative of the two. So the ViewModel's failure wins, and a
+  /// `disposer` failure behind it is logged rather than lost.
   @override
   @nonVirtual
   void disposeInstance(T instance) {
-    instance.dispose();
-    disposeViewModel(instance);
+    final vmFailure = _capture(() => instance.dispose());
+    final providerFailure = _capture(() => disposeViewModel(instance));
+    if (vmFailure != null && providerFailure != null) {
+      StoreScopeConfig.log('$providerFailure', isError: true);
+    }
+    final failure = vmFailure ?? providerFailure;
+    if (failure != null) {
+      Error.throwWithStackTrace(failure.error, failure.stackTrace);
+    }
   }
 
   /// Constructs the [ViewModel]. The given [space] is a [StoreSpace] tied to

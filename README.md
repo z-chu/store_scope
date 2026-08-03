@@ -61,7 +61,7 @@ keep their reactivity; native developers keep their ViewModel.
 
 ```yaml
 dependencies:
-  store_scope: ^0.2.0
+  store_scope: ^0.3.0
 ```
 
 ## Quick start
@@ -387,13 +387,94 @@ test('pure Dart', () {
 });
 ```
 
-- **`overrideWithValue(fake)`** — returns a ready-made instance. The store
-  **never creates or disposes it**; you own its lifecycle. The usual way to
-  inject a mock.
+**Pick by intent:**
+
+| Goal | Do this |
+|---|---|
+| Test the real ViewModel — its behaviour, `init()`, cleanup | Override its **dependencies**, not the ViewModel:<br>`repoProvider.overrideWithValue(FakeRepo())` |
+| Drop a ready-made fake into the tree | `vmProvider.overrideWithValue(fake)` |
+| The fake needs a `StoreSpace`, or its `init()` is where the setup happens | `vmProvider.overrideWith(`<br>`  (space) => Fake(space)..init(),`<br>`  dispose: (vm) => vm.dispose(),`<br>`)` |
+
+The two entry points:
+
+- **`overrideWithValue(fake)`** — hands the store a ready-made instance. The
+  usual way to inject a mock.
 - **`overrideWith((space) => fake, dispose: ...)`** — replaces the creation
-  logic with a plain instance. Note: when overriding a `ViewModelProvider`,
-  `init()` / `dispose()` are **not** called automatically — pass
-  `dispose: (vm) => vm.dispose()` if you want teardown.
+  logic with a factory, so the fake can `space.bind` / `space.share`
+  dependencies of its own (which `overrideWithValue` cannot).
+
+### One rule, no exceptions
+
+**An override hands the store an inert stand-in.** The store returns it where
+the real provider was requested, and **never runs its lifecycle** — overriding
+a `ViewModelProvider` does *not* call the fake's `init()` or `dispose()`. You
+built the fake, so you own it. There is no flag that changes this.
+
+That's deliberate: a fake is routinely reused — captured in a `final` at the top
+of a test, shared across cases, rebuilt by a factory that runs again whenever the
+store needs the instance anew. A container that disposed it would hand out a dead
+object on the next round, and the failure would surface far from its cause.
+
+If your fake's hooks matter, run them yourself. For a fake that needs no
+`StoreSpace`, do it before injecting:
+
+```dart
+final fake = FakeUserVm();
+fake.init();                 // if the fake's init() sets up state
+addTearDown(fake.dispose);   // if its teardown matters
+
+StoreScope(
+  overrides: [userVmProvider.overrideWithValue(fake)],
+  child: const MyApp(),
+);
+```
+
+If the fake's `init()` is where the work happens — binding dependencies,
+starting subscriptions — it needs a live `StoreSpace`, and that only exists
+inside the factory. Run the hooks there instead:
+
+```dart
+StoreScope(
+  overrides: [
+    userVmProvider.overrideWith(
+      (space) => FakeUserVm(space)..init(),  // space is live here
+      dispose: (vm) => vm.dispose(),         // the store runs this on teardown
+    ),
+  ],
+  child: const MyApp(),
+);
+```
+
+That's the full production lifecycle, spelled out in two visible lines instead
+of hidden in the container — and because you opted in, the consequences stay in
+sight: build a **fresh** instance in the factory when you use this shape, since
+`create` may run again and re-running `init()` on a captured singleton would
+initialize it twice.
+
+### Testing the *real* lifecycle
+
+If what you want to verify is that `init()` ran, that `addCloseable` /
+`addSubscription` actually cleaned up, or that the ViewModel died with its
+scope — **don't override the ViewModel at all.** Override the dependencies it
+binds and let the real one run; it then follows the exact production path,
+hooks included:
+
+```dart
+final repoProvider = Provider.shared<Repo>((space) => HttpRepo());
+
+final userVmProvider = ViewModelProvider<UserVm>(
+  (space) => UserVm(space.share(repoProvider)),  // dependency via the store
+);
+
+// Swap the leaf, keep the real ViewModel: init() / dispose() run as usual.
+StoreScope(
+  overrides: [repoProvider.overrideWithValue(FakeRepo())],
+  child: const MyApp(),
+);
+```
+
+Override the ViewModel when you want it *out* of the test; override its
+dependencies when you want it *under* test.
 
 > Argument providers match by **value**: `userProvider(42).overrideWithValue(...)`
 > overrides only `userProvider(42)`; `userProvider(7)` still uses the real one.
@@ -411,6 +492,16 @@ test('pure Dart', () {
   shared and scoped alike.
 - `ViewModel.dispose()` and all `addCloseable` / `addSubscription` /
   `addKeyedCloseable` callbacks run deterministically at disposal.
+- **Scope-driven** teardown is **inside-out**: when a binding scope dies, the
+  instance's dependency cascade — everything its creator `space.bind`-ed — is
+  released *before* its own `dispose()` runs. Don't reach for a bound dependency
+  while shutting down; by then it is already gone. (`unmount()` runs no cascade
+  at all and disposes in creation order, so the same rule applies there for a
+  different reason — never depend on teardown order during unmount.)
+- **Overrides sit outside all of this.** Everything above describes instances
+  the store *created*. An injected fake is one you created, so the store only
+  returns it — it never runs `init()` or `dispose()` on it. Whoever builds the
+  instance owns its lifecycle (see [Testing](#testing-override-providers)).
 
 ## API cheatsheet
 

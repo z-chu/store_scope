@@ -48,7 +48,7 @@ class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
 
 ```yaml
 dependencies:
-  store_scope: ^0.2.0
+  store_scope: ^0.3.0
 ```
 
 ## 快速开始
@@ -349,8 +349,75 @@ test('纯 Dart', () {
 });
 ```
 
-- **`overrideWithValue(fake)`** —— 直接给一个现成实例,Store **不会创建也不会析构它**,生命周期由你掌控。注入 mock 的首选。
-- **`overrideWith((space) => fake, dispose: ...)`** —— 替换创建逻辑,按普通实例处理。注意:替换 `ViewModelProvider` 时,fake 的 `init()` / `dispose()` **不会**被自动调用 —— 如需析构,显式传 `dispose: (vm) => vm.dispose()`。
+**按意图选:**
+
+| 我想干什么 | 就这么写 |
+|---|---|
+| 测真实 ViewModel —— 它的行为、`init()`、清理 | 换掉它的**依赖**,别换 ViewModel:<br>`repoProvider.overrideWithValue(FakeRepo())` |
+| 往树里塞一个现成的 fake | `vmProvider.overrideWithValue(fake)` |
+| fake 需要 `StoreSpace`,或它的初始化都在 `init()` 里 | `vmProvider.overrideWith(`<br>`  (space) => Fake(space)..init(),`<br>`  dispose: (vm) => vm.dispose(),`<br>`)` |
+
+两个入口:
+
+- **`overrideWithValue(fake)`** —— 直接给一个现成实例。注入 mock 的首选。
+- **`overrideWith((space) => fake, dispose: ...)`** —— 用工厂替换创建逻辑,fake 因此可以 `space.bind` / `space.share` 自己的依赖(这是 `overrideWithValue` 做不到的)。
+
+### 一条规则,没有例外
+
+**override 交给 Store 的是一个惰性替身。** Store 只在原 provider 被请求的地方把它返回出去,**从不运行它的生命周期** —— 覆盖 `ViewModelProvider` 时,fake 的 `init()` / `dispose()` *不会*被调用。fake 是你造的,就归你管。没有任何开关能改变这一点。
+
+这是刻意的:fake 天生会被复用 —— 在测试顶部 `final` 捕获一次、多个 case 共用、或者工厂在 Store 需要重建实例时再跑一遍。如果容器擅自 dispose 它,下一轮拿到的就是一个死对象,而报错的位置离病根十万八千里。
+
+fake 的钩子真的要跑,自己调就是了。fake 不需要 `StoreSpace` 时,注入前调:
+
+```dart
+final fake = FakeUserVm();
+fake.init();                 // fake 的 init() 里有初始状态就调
+addTearDown(fake.dispose);   // 需要它的清理就调
+
+StoreScope(
+  overrides: [userVmProvider.overrideWithValue(fake)],
+  child: const MyApp(),
+);
+```
+
+**如果 fake 的初始化逻辑几乎都在 `init()` 里**(在里面绑依赖、起订阅),那它需要一个活的 `StoreSpace` —— 而 `StoreSpace` 只在工厂里存在。这时把钩子放进工厂:
+
+```dart
+StoreScope(
+  overrides: [
+    userVmProvider.overrideWith(
+      (space) => FakeUserVm(space)..init(),  // 这里的 space 是活的
+      dispose: (vm) => vm.dispose(),         // Store 会在销毁时执行这个
+    ),
+  ],
+  child: const MyApp(),
+);
+```
+
+这就是完整的生产生命周期,只不过摊开成两行看得见的代码,而不是藏在容器里。`init()` 里的 `space.bind` 照样挂在实例自己的 scope 上,销毁时正常级联。
+
+代价也留在明处:用这个写法就在工厂里**造新实例**,别返回外面捕获的单例 —— `create` 可能被再次调用(scope 死掉后重新绑定),那样 `init()` 会跑第二遍。
+
+### 想验证**真实**的生命周期
+
+如果你要验的是 `init()` 有没有跑、`addCloseable` / `addSubscription` 有没有真的清理、ViewModel 有没有随作用域消亡 —— **那就根本别 override 这个 ViewModel。** 换掉它绑定的依赖,让真实 VM 跑起来,它走的就是完整的生产路径,钩子一个不落:
+
+```dart
+final repoProvider = Provider.shared<Repo>((space) => HttpRepo());
+
+final userVmProvider = ViewModelProvider<UserVm>(
+  (space) => UserVm(space.share(repoProvider)),  // 依赖走容器
+);
+
+// 只换叶子,保留真实 ViewModel:init() / dispose() 照常执行。
+StoreScope(
+  overrides: [repoProvider.overrideWithValue(FakeRepo())],
+  child: const MyApp(),
+);
+```
+
+一句话:想把 ViewModel **排除在**测试之外就 override 它;想把 ViewModel **放在**测试之下就 override 它的依赖。
 
 > 带参数的 provider 按**值**匹配:`userProvider(42).overrideWithValue(...)` 只覆盖 `userProvider(42)`,`userProvider(7)` 仍走真实实现。
 >
@@ -362,6 +429,8 @@ test('纯 Dart', () {
 - **Store 级**(`shared`)实例从不绑定 Widget 作用域,活到 `StoreScope` unmount。
 - 移除 `StoreScope` 会 unmount 它的 store,并析构**所有**实例 —— shared 和 scoped 都一样。
 - `ViewModel.dispose()` 以及所有 `addCloseable` / `addSubscription` / `addKeyedCloseable` 回调都在析构时确定性地执行。
+- **由 scope 驱动的**析构是**由内向外**的:绑定 scope 死亡时,实例的依赖级联(创建时 `space.bind` 的所有东西)在它自己的 `dispose()` **之前**就已经释放完。所以别在关闭流程里再去碰绑定的依赖 —— 那时候它已经没了。(`unmount()` 不跑级联,按创建顺序逐个析构,所以那条路径上同样别依赖析构顺序。)
+- **override 不在上述规则之内。** 上面说的全都是 Store **自己创建**的实例。注入的 fake 是你创建的,Store 只负责把它返回出去 —— 从不对它调 `init()` 或 `dispose()`。谁创建实例,谁持有它的生命周期(见上文「测试:替换 Provider」一节)。
 
 ## API 速查
 

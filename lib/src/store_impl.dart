@@ -47,9 +47,11 @@ class StoreImpl implements UnmountableStore {
   ///
   /// Each [Override] redirects resolution of its target provider to a
   /// replacement — typically a fake or mock. Build overrides with
-  /// [ProviderOverride.overrideWithValue] (injects a ready instance the store
-  /// never disposes) or [ProviderOverride.overrideWith] (replaces creation with
-  /// a plain instance). The same provider may be overridden at most once;
+  /// [ProviderOverride.overrideWithValue] (injects a ready instance) or
+  /// [ProviderOverride.overrideWith] (replaces creation with a factory). The
+  /// store never runs a lifecycle on an overridden instance — no `init()`, no
+  /// `dispose()`, even for a `ViewModelProvider` target; see
+  /// [ProviderOverride]. The same provider may be overridden at most once;
   /// passing duplicate targets throws in debug via the assertion.
   ///
   /// ```dart
@@ -179,18 +181,22 @@ Store unmounted:
   // === Private Instance Management ===
 
   T _getOrCreateInstance<T>(ProviderBase<T> provider) {
-    var instance = _instances[provider];
-    if (instance == null) {
-      instance = (_overrides[provider] ?? provider).create(this);
-      _instances[provider] = instance;
-      _log('"${instance.runtimeType}" instance created');
+    // containsKey, not `== null`: a provider whose T is nullable may legitimately
+    // produce null. Testing the value would treat that as "not created yet" and
+    // rebuild the instance on every access — allocating a fresh instance scope
+    // each time, all of them registered under the same identity key (null) in
+    // the scope manager, so every earlier scope is orphaned and its cascade
+    // never released.
+    if (_instances.containsKey(provider)) {
+      return _instances[provider] as T;
     }
+    final instance = (_overrides[provider] ?? provider).create(this);
+    _instances[provider] = instance;
+    _log('"${instance.runtimeType}" instance created');
     return instance as T;
   }
 
   void _invalidateProvider<T>(ProviderBase<T> provider) {
-    final instance = _instances[provider];
-
     // Always clean up watchers and callbacks.
     _scopeWatchers.remove(provider);
     final callbacks = _listenerCallbacks.remove(provider);
@@ -200,8 +206,11 @@ Store unmounted:
       }
     }
 
+    // Only dispose what actually exists: for a nullable T, `_instances[provider]`
+    // being null does not mean there is no instance — ask the map.
+    if (!_instances.containsKey(provider)) return;
+    final instance = _instances.remove(provider);
     _disposeProviderInstance(provider, instance);
-    _instances.remove(provider);
     _log('"${instance.runtimeType}" instance disposed');
   }
 
@@ -261,8 +270,35 @@ Store unmounted:
   void _disposeProviderInstance<T>(ProviderBase<T> provider, T instance) {
     try {
       (_overrides[provider] ?? provider).dispose(this, instance);
-    } catch (e) {
-      _log('Error disposing ${instance.runtimeType}: $e', isError: true);
+    } catch (error, stackTrace) {
+      // Teardown must continue — one failing disposer must not strand every
+      // other instance in the store, especially inside unmount()'s loop. But
+      // it must not vanish either: a swallowed error here hides exactly the
+      // guarantee this package exists to provide. Report it through
+      // FlutterError so it fails tests and reaches the console with a stack,
+      // instead of becoming a log line nobody reads.
+      try {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'store_scope',
+            context: ErrorDescription(
+              'while disposing a ${instance.runtimeType} held by '
+              '${provider.runtimeType}',
+            ),
+          ),
+        );
+      } catch (_) {
+        // Reporting itself must never abort the teardown. `FlutterError.onError`
+        // is user-owned and a common setting is `(d) => throw d.exception`; if
+        // that escaped from here it would break out of unmount()'s loop and
+        // strand every instance after this one — reintroducing the exact bug
+        // the outer catch exists to prevent. Fall back to the log, which is
+        // the end of the line: StoreScopeConfig.log is contractually not
+        // allowed to throw, so this is deliberately not wrapped again.
+        _log('Error disposing ${instance.runtimeType}: $error', isError: true);
+      }
     }
   }
 

@@ -52,6 +52,12 @@ library;
 
 export 'src/store_scope.dart';
 export 'src/store.dart';
+// `show`: the library also declares a top-level `LogWriterCallback` typedef and
+// a `defaultLogWriterCallback` function, both carrying GetX's exact names. A
+// bare export would make any file that imports both packages unprefixed fail to
+// compile with `ambiguous_import`. Assigning `StoreScopeConfig.log` needs
+// neither name — the closure's type is inferred.
+export 'src/store_scope_config.dart' show StoreScopeConfig;
 export 'src/provider.dart';
 export 'src/dispose_state_notifier.dart';
 export 'src/view_model.dart';

@@ -133,8 +133,22 @@ abstract class Provider<T> extends ProviderBase<T> {
   T create(Store store) {
     var instanceScopeManager = store.share(_instanceScopeManagerProvider);
     var scope = DisposeStateNotifier();
-    final instance = createInstance(StoreSpace(store, scope));
-    instanceScopeManager.onInstanceCreated(instance, scope);
+    final T instance;
+    try {
+      instance = createInstance(StoreSpace(store, scope));
+    } catch (_) {
+      // The creator failed part-way, so there is no instance to register and
+      // `onInstanceCreated` below never runs — this scope would never reach the
+      // manager, and therefore never be disposed. Anything the creator already
+      // `space.bind`-ed is hanging off it, so releasing it here is the only
+      // thing that can tear that half-built cascade down. Without it the child
+      // sits in the store until unmount, and its refcount gains a permanent +1
+      // per attempt — an unbounded leak when a failing bind is retried on
+      // every rebuild.
+      scope.dispose();
+      rethrow;
+    }
+    instanceScopeManager.onInstanceCreated(this, instance, scope);
     return instance;
   }
 
@@ -144,12 +158,28 @@ abstract class Provider<T> extends ProviderBase<T> {
   /// bookkeeping (so children bound by the creator are disposed too) and then
   /// unconditionally calls [disposeInstance]. Override [disposeInstance] — not
   /// this method — to release the instance's own resources.
+  ///
+  /// **Scope-driven teardown is inside-out:** when a binding scope dies, the
+  /// dependency cascade is released *before* [disposeInstance] runs, so by the
+  /// time an instance's own teardown executes, every child its creator
+  /// `space.bind`-ed — for which this instance held the last binding — has
+  /// already been disposed. Never reach for a bound dependency from
+  /// [disposeInstance] (or from `ViewModel.dispose`); attach that work to the
+  /// dependency instead.
+  ///
+  /// [Store.unmount] does **not** give that guarantee. It flips `mounted` to
+  /// `false` before destroying anything, so the `store.mounted` branch below is
+  /// skipped and no cascade runs at all — instances are simply disposed in
+  /// creation order. That order happens to be inside-out for a dependency bound
+  /// while its owner was being created (the child is created, and therefore
+  /// registered, first), but not for one bound later, which is destroyed *after*
+  /// its owner. Do not rely on ordering during `unmount()`.
   @override
   @nonVirtual
   void dispose(Store store, T instance) {
     if (store.mounted) {
       var instanceScopeManager = store.share(_instanceScopeManagerProvider);
-      instanceScopeManager.onInstanceDisposed(instance);
+      instanceScopeManager.onInstanceDisposed(this, instance);
     }
     // disposeInstance must run unconditionally: unmount() sets _mounted to false
     // before destroying instances, so guarding it with if (store.mounted) would

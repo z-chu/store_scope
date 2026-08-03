@@ -1,6 +1,6 @@
 name: store_scope
 description: Flutter's Jetpack ViewModel — widget-tree-scoped dependency injection with automatic disposal, zero codegen, and bring-your-own reactivity.
-version: 0.2.0
+version: 0.3.0
 homepage: https://github.com/z-chu/store_scope
 repository: https://github.com/z-chu/store_scope
 

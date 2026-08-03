@@ -57,6 +57,13 @@ class StoreSpace implements ScopeAware, Store {
   /// This is the scope-bound counterpart to [share]: use [bind] for scoped,
   /// reference-counted acquisition and [share] for store-lifetime singletons.
   ///
+  /// Teardown runs **inside-out**: when this space's scope dies, everything
+  /// bound through it is disposed *before* the owner's own teardown (its
+  /// `disposer`, or `ViewModel.dispose`). So an owner must never use a bound
+  /// dependency while shutting down — by then the dependency is already gone.
+  /// ([Store.unmount] is the exception: it disposes everything in creation
+  /// order without running cascades — see [Provider.dispose].)
+  ///
   /// Example:
   /// ```dart
   /// final myState = space.bind(myProvider);
