@@ -23,7 +23,7 @@ abstract class _BaseArgProvider<T> extends Provider<T> {
 /// The single concrete provider produced by every `ArgProviderFactory[N]`.
 ///
 /// Arguments are stored *flattened* in [_argParts] so they remain direct
-/// elements of [props]. This preserves [EquatableMixin]'s deep comparison for
+/// elements of [props]. This preserves [Equatable]'s deep comparison for
 /// `List`/`Map`/`Set` arguments — e.g. `provider([1, 2], p)` called twice with
 /// different list instances but equal content resolves to the same cached
 /// instance, exactly as the per-arity classes did before they were unified.
@@ -35,7 +35,7 @@ abstract class _BaseArgProvider<T> extends Provider<T> {
 /// and scope maps, orphaning the cached instance and breaking refcounting. The
 /// instance itself is still created from the caller's *original* argument value
 /// — only the identity key is frozen.
-class _ArgProvider<T> extends _BaseArgProvider<T> with EquatableMixin {
+class _ArgProvider<T> extends _BaseArgProvider<T> with Equatable {
   _ArgProvider(this._factory, List<Object?> argParts, this._create)
     : assert(
         argParts.isNotEmpty,
@@ -65,7 +65,7 @@ class _ArgProvider<T> extends _BaseArgProvider<T> with EquatableMixin {
 /// You usually do not construct this directly — obtain it from
 /// [Provider.withArgument]. Calling the factory like a function, e.g. `p(42)`,
 /// yields a [Provider] for that argument. Providers are keyed by the
-/// argument's *value*, deep-compared via [EquatableMixin], so two calls with
+/// argument's *value*, deep-compared via [Equatable], so two calls with
 /// equal arguments resolve to the same cached instance (and `List`/`Map`/`Set`
 /// arguments work as keys):
 ///

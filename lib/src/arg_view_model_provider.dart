@@ -32,7 +32,7 @@ abstract class _BaseArgViewModelProvider<T extends ViewModel>
 /// is still built from the original argument value.
 class _ArgViewModelProvider<T extends ViewModel>
     extends _BaseArgViewModelProvider<T>
-    with EquatableMixin {
+    with Equatable {
   _ArgViewModelProvider(this._factory, List<Object?> argParts, this._create)
     : assert(
         argParts.isNotEmpty,
