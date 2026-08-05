@@ -23,9 +23,10 @@ part 'arg_view_model_provider.dart';
 /// drives them.
 ///
 /// Because it extends [ChangeNotifier], a [ViewModel] can hold mutable state
-/// and call `notifyListeners()` to rebuild widgets that listen to it. It also
-/// implements [ScopeAware]: its [scope] becomes disposed at the start of
-/// [dispose], so child providers bound through it are released alongside it.
+/// and call `notifyListeners()` to rebuild widgets that listen to it — but never
+/// from its own teardown; see [Provider.disposeInstance]. It also implements
+/// [ScopeAware]: its [scope] becomes disposed at the start of [dispose], so
+/// child providers bound through it are released alongside it.
 ///
 /// Subclass it, expose state, and register cleanup in [init]:
 ///
@@ -96,14 +97,29 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   /// only then calls `dispose()`. So do not touch a bound dependency here (no
   /// final `repo.flush()`); it has already been disposed. Register that work
   /// with [addCloseable] on the dependency itself, or with a `disposer` on the
-  /// provider that owns it. (On [Store.unmount] there is no cascade at all and
-  /// the order is unspecified, so the same rule applies for a different
-  /// reason.)
+  /// provider that owns it. (On [UnmountableStore.unmount] there is no cascade
+  /// at all and the order is unspecified, so the same rule applies for a
+  /// different reason.)
   ///
   /// The [scope] is disposed first
   /// (so [disposed] becomes `true` before any callback runs), each callback is
   /// then invoked once on a snapshot of the collections, and `super.dispose()`
   /// runs last so the notifier stays usable while callbacks execute.
+  ///
+  /// **An override must not trigger a widget rebuild either.** The rule in
+  /// [Provider.disposeInstance] covers this method exactly as it covers an
+  /// [addCloseable] callback — overriding `dispose` is not a way around it.
+  /// Before `super.dispose()` you get `markNeedsBuild() called when widget tree
+  /// was locked`; after it, `... was used after being disposed`. Neither reaches
+  /// your caller — both are caught during teardown and reported through
+  /// [FlutterError] — but the second throws inside your override, so anything
+  /// you had left to do after the notify is skipped.
+  ///
+  /// Both messages are assertions, so a release build reports neither, and the
+  /// two diverge there: before `super.dispose()` the rebuild really goes through
+  /// (which is why this ships), while after it the notification is dropped and
+  /// the rest of your override runs — the cleanup debug threw away. Avoid the
+  /// call rather than test for it.
   ///
   /// **Teardown always runs to completion.** A callback that throws does not
   /// abort the ones after it: every failure is collected, the remaining
@@ -165,6 +181,10 @@ abstract class ViewModel extends ChangeNotifier implements ScopeAware {
   /// - The ViewModel is already disposed (immediately)
   ///
   /// If the same [closeable] is added multiple times, it will only be executed once.
+  ///
+  /// **A closeable must not trigger a widget rebuild** — it runs as part of
+  /// [dispose], synchronously inside Flutter's element-tree teardown. See
+  /// [Provider.disposeInstance].
   ///
   /// Example:
   /// ```dart

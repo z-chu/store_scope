@@ -31,10 +31,10 @@
 ///
 /// void main() => runApp(const StoreScope(child: MyApp()));
 ///
-/// class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+/// class CounterPage extends StatelessWidget with ScopedStatelessMixin {
 ///   const CounterPage({super.key});
 ///   @override
-///   Widget buildWithSpace(BuildContext context, StoreSpace space) {
+///   Widget buildScoped(BuildContext context, StoreSpace space) {
 ///     final vm = space.bind(counterProvider); // disposed with this widget
 ///     return ValueListenableBuilder<int>(
 ///       valueListenable: vm.count,

@@ -23,7 +23,7 @@ Entry point: [`lib/main.dart`](lib/main.dart).
 These build, install, and drive a real widget tree on a connected device,
 asserting the behaviour of every feature (shared/scoped/argument providers,
 `.asShared`, ViewModel lifecycle, reference-counting, unmount disposal,
-`StoreScope(overrides:)`, the four scoped mixins, and `AutoStoreWidget`).
+`StoreScope(overrides:)`, the scoped mixins, and `AutoStoreWidget`).
 
 ```bash
 # list devices

@@ -67,6 +67,21 @@ abstract class Store {
   /// [share] / [bindWith], this never triggers lazy creation, so it is safe to
   /// call for inspection.
   ///
+  /// [find] registers no binding, so it grants no lifetime: the instance it
+  /// returns lives exactly as long as whoever *does* hold a binding, and nothing
+  /// tells you when that ends. That makes it right for a one-shot read — a tap
+  /// handler calling a method, a diagnostic, a test — and wrong for anything
+  /// that outlives the call. A stored field or an attached listener keeps
+  /// pointing at an instance that may already be disposed, and it fails quietly:
+  /// the listener simply stops firing (a disposed [ChangeNotifier] has no
+  /// listeners left to notify), so the UI freezes on its last value with no
+  /// error anywhere.
+  ///
+  /// To *observe* an instance, bind it instead — `space.bind(provider)` or
+  /// [bindWith] with your own scope. Binding is reference-counted, so it costs
+  /// nothing when someone else already holds the instance, and it guarantees the
+  /// instance outlives the scope doing the observing.
+  ///
   /// Example:
   /// ```dart
   /// final counterProvider = Provider.shared((space) => 0);

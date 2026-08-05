@@ -20,11 +20,11 @@ objects in a global locator.
 ```dart
 final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
 
-class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   const CounterPage({super.key});
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     final vm = space.bind(counterProvider); // created here, disposed with this widget
     return ValueListenableBuilder<int>(
       valueListenable: vm.count,
@@ -61,7 +61,7 @@ keep their reactivity; native developers keep their ViewModel.
 
 ```yaml
 dependencies:
-  store_scope: ^0.3.0
+  store_scope: ^0.4.0
 ```
 
 ## Quick start
@@ -100,11 +100,11 @@ final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
 **4. Bind it to a widget's scope** and read reactively.
 
 ```dart
-class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   const CounterPage({super.key});
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     final vm = space.bind(counterProvider);
     return Scaffold(
       body: Center(
@@ -182,6 +182,14 @@ final repo = store.bindWith(repoProvider, someListenable);
 final auth = store.share(authProvider);
 final auth = context.share(authProvider);
 ```
+
+**The return value is optional.** When you only want to attach a provider's lifetime to the current scope and never touch the instance, just drop the variable — `bind` is deliberately not annotated `@useResult`, so a bare call statement raises no analyzer warning:
+
+```dart
+space.bind(analyticsProvider); // keep it alive with this scope, nothing else
+```
+
+Binding the same provider to the same scope is idempotent (no extra reference is counted), so calling it on every `build` is safe. Do not write `late final x = space.bind(p);` though: a lazy field whose value is never read never runs its initializer, so nothing is ever bound. Keep it an eagerly executed statement.
 
 ### Arguments (families)
 
@@ -272,15 +280,15 @@ Pick whichever entry point fits the widget you're writing:
 
 ```dart
 // StatelessWidget, get a StoreSpace:
-class A extends StatelessWidget with ScopedSpaceStatelessMixin {
+class A extends StatelessWidget with ScopedStatelessMixin {
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) =>
+  Widget buildScoped(BuildContext context, StoreSpace space) =>
       Text(space.bind(p).label);
 }
 
 // StatefulWidget, get a StoreSpace via the `space` getter:
 class B extends StatefulWidget { /* ... */ }
-class _BState extends State<B> with ScopedSpaceStateMixin {
+class _BState extends State<B> with ScopedStateMixin {
   @override
   Widget build(BuildContext context) => Text(space.bind(p).label);
 }
@@ -291,8 +299,10 @@ ScopedBuilder(
 );
 ```
 
-`ScopedStatelessMixin` / `ScopedStateMixin` expose a raw `Listenable scope`
-instead of a `StoreSpace`, for use with `context.store.bindWith(p, scope)`.
+There is no third choice to make: if you need the raw `Listenable` scope instead
+of the space — to call `context.store.bindWith(p, scope)`, or to hand the
+lifetime to something else — use `space.scope` (or the `scope` getter that
+`ScopedStateMixin` also exposes).
 
 **`AutoStoreWidget`** owns a *fresh* `Store` for its own subtree (handy for a
 self-contained page or flow):
@@ -517,8 +527,7 @@ dependencies when you want it *under* test.
 | `store.bindWith(p, listenable)` | Acquire scoped to any `Listenable` |
 | `store.share(p)` / `context.share(p)` | Acquire a store-lifetime instance |
 | `p.overrideWithValue(v)` / `p.overrideWith(...)` | Test doubles |
-| `ScopedSpaceStatelessMixin` / `ScopedSpaceStateMixin` | Get a `StoreSpace` in a widget |
-| `ScopedStatelessMixin` / `ScopedStateMixin` | Get a raw `Listenable scope` |
+| `ScopedStatelessMixin` / `ScopedStateMixin` | Get a `StoreSpace` in a widget |
 | `ScopedBuilder` | Inline scoped builder |
 | `AutoStoreWidget` / `AutoStoreStatefulWidget` | A widget that owns its own store |
 | `DisposeStateNotifier` | A disposable `Listenable` to use as a custom scope |

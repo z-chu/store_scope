@@ -43,7 +43,7 @@ typedef ScopedBuilderFunction =
 ///   },
 /// )
 /// ```
-class ScopedBuilder extends StatelessWidget with ScopedSpaceStatelessMixin {
+class ScopedBuilder extends StatelessWidget with ScopedStatelessMixin {
   /// Creates a ScopedBuilder widget.
   ///
   /// The [builder] function is called to build the widget tree and receives
@@ -60,7 +60,7 @@ class ScopedBuilder extends StatelessWidget with ScopedSpaceStatelessMixin {
   final Widget? _child;
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     return _builder(context, space, _child);
   }
 }

@@ -54,6 +54,9 @@ class StoreSpace implements ScopeAware, Store {
   /// disposed when that scope dies — so children bound this way are cleaned up
   /// together with the instance that created the space.
   ///
+  /// It is also the right way to *observe* an instance: binding guarantees the
+  /// instance outlives this scope, which a [Store.find] lookup does not.
+  ///
   /// This is the scope-bound counterpart to [share]: use [bind] for scoped,
   /// reference-counted acquisition and [share] for store-lifetime singletons.
   ///
@@ -61,13 +64,28 @@ class StoreSpace implements ScopeAware, Store {
   /// bound through it is disposed *before* the owner's own teardown (its
   /// `disposer`, or `ViewModel.dispose`). So an owner must never use a bound
   /// dependency while shutting down — by then the dependency is already gone.
-  /// ([Store.unmount] is the exception: it disposes everything in creation
-  /// order without running cascades — see [Provider.dispose].)
+  /// ([UnmountableStore.unmount] is the exception: it disposes everything in
+  /// creation order without running cascades — see [Provider.dispose].)
   ///
   /// Example:
   /// ```dart
   /// final myState = space.bind(myProvider);
   /// ```
+  ///
+  /// The return value is optional. When you only want to attach the provider's
+  /// lifetime to this scope and never touch the instance, just drop the
+  /// variable — [bind] is deliberately not annotated `@useResult`, so a bare
+  /// call statement raises no analyzer warning:
+  ///
+  /// ```dart
+  /// space.bind(analyticsProvider); // keep it alive with this scope, nothing else
+  /// ```
+  ///
+  /// Binding is idempotent per scope, so repeating the call (for example on
+  /// every `build`) does not add a second reference. Beware `late final x =
+  /// space.bind(p)` in that case: a lazy field whose value is never read never
+  /// runs its initializer, so nothing is ever bound. Keep it an eagerly
+  /// executed statement.
   T bind<T>(ProviderBase<T> provider) {
     return _store.bindWith(provider, scope);
   }
@@ -90,7 +108,9 @@ class StoreSpace implements ScopeAware, Store {
   }
 
   /// Returns the existing instance for [provider], or `null` if it has not been
-  /// created yet. Delegates to [Store.find] and never creates an instance.
+  /// created yet. Delegates to [Store.find] and never creates an instance —
+  /// including its caveat: the result grants no lifetime, so read it and drop
+  /// it. To observe an instance, use [bind].
   @override
   T? find<T>(ProviderBase<T> provider) {
     return _store.find(provider);

@@ -1,65 +1,68 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../store_scope.dart';
 
-/// A mixin that gives a [State] its own disposal-tracked [scope], turning the
-/// widget into a [ScopeAware] binding point for scoped providers.
+/// Disposes [old] as soon as it is safe to run the instance disposers hanging
+/// off it, releasing everything bound against that scope.
 ///
-/// The mixin owns a private [DisposeStateNotifier] and exposes it through
-/// [scope]. Use that [scope] with `store.bindWith(provider, scope)` (or
-/// `context.store.bindWith(provider, scope)`) to acquire scoped instances from
-/// a [Provider.from] recipe. Binding is reference-counted across every scope that binds the same
-/// provider, so the instance is disposed only when the last binding scope is
-/// gone. Because this mixin disposes its notifier inside [dispose], every
-/// instance bound through it is released deterministically the moment this
-/// [State] leaves the tree.
+/// Both scoped mixins re-check the ambient [Store] from a getter that is
+/// normally read during `build`. Disposing inline there would run instance
+/// disposers mid-build — a disposer that calls `notifyListeners` would trip
+/// "markNeedsBuild called during build" — so the release is deferred to the end
+/// of the frame.
 ///
-/// Prefer this mixin when you need scoped (reference-counted) acquisition tied
-/// to a [StatefulWidget]'s lifetime but do not need a full [StoreSpace]. If you
-/// want the store baked in alongside the scope, use [ScopedSpaceStateMixin]
-/// instead; for store-lifetime singletons reach for [Store.share] /
-/// `context.share` and a [Provider.shared] recipe, which need no scope at all.
-///
-/// Example:
-/// ```dart
-/// class _CounterPageState extends State<CounterPage> with ScopedStateMixin {
-///   late final counter = context.store.bindWith(counterProvider, scope);
-///
-///   @override
-///   Widget build(BuildContext context) => Text('Counter: ${counter.value}');
-/// }
-/// ```
-mixin ScopedStateMixin<T extends StatefulWidget> on State<T>
-    implements ScopeAware {
-  late final _disposeNotifier = DisposeStateNotifier();
-
-  /// The [Listenable] whose notification marks the end of this widget's scope.
-  ///
-  /// Pass it to scoped acquisition APIs such as `store.bindWith(provider, scope)`.
-  /// It fires (and releases the instances bound through it) when this [State] is
-  /// disposed.
-  @override
-  Listenable get scope => _disposeNotifier;
-
-  /// Disposes the backing scope notifier, releasing every instance bound through
-  /// [scope], then defers to `super.dispose`.
-  ///
-  /// Always call `super.dispose()` if you override this further down your class.
-  @override
-  void dispose() {
-    _disposeNotifier.dispose();
-    super.dispose();
+/// That deferral is only valid while a frame is actually in flight.
+/// [SchedulerBinding.addPostFrameCallback] does **not** schedule a frame of its
+/// own, so registering one from an idle scheduler (a `State` reading `space`
+/// from an `onPressed`, a `Timer`, or a stream listener after a [GlobalKey]
+/// reparent went unnoticed by an intervening build) hands the notifier to a
+/// callback that may never run — leaking the old scope and every instance bound
+/// through it. Outside a frame there is nothing to protect, so dispose inline.
+void _releaseWhenSafe(DisposeStateNotifier old) {
+  switch (SchedulerBinding.instance.schedulerPhase) {
+    // A frame is in flight and its post-frame callbacks are still ahead of us.
+    case SchedulerPhase.transientCallbacks:
+    case SchedulerPhase.midFrameMicrotasks:
+    case SchedulerPhase.persistentCallbacks:
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    // Idle, or already draining post-frame callbacks — deferring would push the
+    // work onto a frame nobody has scheduled. The build phase is over either
+    // way, so running disposers now is safe.
+    case SchedulerPhase.postFrameCallbacks:
+    case SchedulerPhase.idle:
+      old.dispose();
   }
 }
 
-/// A mixin that provides dispose state tracking capability for [StatelessWidget]s.
+/// A mixin that gives a [StatelessWidget] its own disposal-tracked [StoreSpace].
 ///
-/// This mixin creates and manages a [DisposeStateNotifier] that will be disposed
-/// when the widget is removed from the tree, exposing it as a [ScopeAware]
-/// [scope]. Use that scope with `context.store.bindWith(provider, scope)` to
-/// acquire scoped [Provider.from] instances; they are reference-counted and the
-/// instance is disposed once the last binding scope (including this one) is gone.
+/// The mixin installs a dedicated [Element] that owns a [DisposeStateNotifier]
+/// and pairs it with the ambient [Store] as a [StoreSpace]. Calling
+/// `space.bind(provider)` acquires an instance scoped to this widget: bindings
+/// are reference-counted across every scope that binds the same provider, so the
+/// instance is disposed only when the last binding scope is gone. Because the
+/// element disposes its notifier when it unmounts, everything bound through this
+/// widget is released deterministically the moment it leaves the tree.
+///
+/// **This mixin requires a [StoreScope] ancestor.** The space is materialised as
+/// the [buildScoped] argument on every build, so the ambient [Store] is resolved
+/// on every build too — a widget with this mixin throws when it is built outside
+/// any [StoreScope], even if its [buildScoped] never touches the `space`. If all
+/// you want is a disposal [Listenable] with no DI container behind it, use a
+/// [DisposeStateNotifier] in a [StatefulWidget] directly.
+///
+/// The [StoreSpace] object itself is cached, and rebuilt only when the ambient
+/// [Store] changes (for example when a [GlobalKey] reparents this subtree
+/// beneath a different [StoreScope]).
+///
+/// Need a raw [Listenable] scope rather than the space — to call
+/// `store.bindWith(provider, scope)` or to hand the lifetime to something else?
+/// Use `space.scope`. For store-lifetime singletons reach for
+/// `context.share` / [Store.share] and a [Provider.shared] recipe, which need no
+/// scope at all.
+///
 /// It is the [StatelessWidget] counterpart to [ScopedStateMixin].
 ///
 /// **Usage:** Override [buildScoped] instead of [build].
@@ -67,104 +70,17 @@ mixin ScopedStateMixin<T extends StatefulWidget> on State<T>
 /// Example:
 /// ```dart
 /// class MyWidget extends StatelessWidget with ScopedStatelessMixin {
+///   const MyWidget({super.key});
+///
 ///   @override
-///   Widget buildScoped(BuildContext context, Listenable scope) {
-///     final data = context.store.bindWith(dataProvider, scope);
-///     return Text('Data: $data');
+///   Widget buildScoped(BuildContext context, StoreSpace space) {
+///     final counter = space.bind(counterProvider);
+///     return Text('Counter: ${counter.value}');
 ///   }
 /// }
 /// ```
 mixin ScopedStatelessMixin on StatelessWidget {
-  /// Sealed entry point that forwards to [buildScoped] with this widget's scope.
-  ///
-  /// Marked [nonVirtual]: do not override it. It requires the dedicated element
-  /// installed by [createElement]; using this mixin without that element throws
-  /// a [StateError].
-  @override
-  @nonVirtual
-  Widget build(BuildContext context) {
-    if (context is! _DisposeAwareStatelessElement) {
-      throw StateError(
-        'ScopedStatelessMixin must be used with its own Element',
-      );
-    }
-    return buildScoped(context, context.scope);
-  }
-
-  /// Build the widget with the given scope.
-  ///
-  /// **IMPORTANT:**
-  /// - Do NOT override the [build] method when using this mixin
-  /// - Override this method instead to build your widget
-  /// - The [scope] parameter will be automatically disposed when the widget is removed
-  ///
-  /// Use [scope] with scoped acquisition (`context.store.bindWith(provider, scope)`):
-  /// the instance is reference-counted and disposed when the last scope binding
-  /// it — this widget's included — is gone.
-  ///
-  /// Example:
-  /// ```dart
-  /// @override
-  /// Widget buildScoped(BuildContext context, Listenable scope) {
-  ///   final counter = context.store.bindWith(counterProvider, scope);
-  ///   return Text('Counter: $counter');
-  /// }
-  /// ```
-  @protected
-  Widget buildScoped(BuildContext context, Listenable scope);
-
-  /// Creates the dedicated element that owns this widget's disposable scope.
-  ///
-  /// The returned element implements [ScopeAware] and disposes the scope when
-  /// it unmounts; [build] relies on it being present.
-  @override
-  StatelessElement createElement() => _DisposeAwareStatelessElement(this);
-}
-
-class _DisposeAwareStatelessElement extends StatelessElement
-    implements ScopeAware {
-  _DisposeAwareStatelessElement(ScopedStatelessMixin super.widget);
-
-  final _disposeNotifier = DisposeStateNotifier();
-
-  @override
-  void unmount() {
-    _disposeNotifier.dispose();
-    super.unmount();
-  }
-
-  @override
-  Listenable get scope => _disposeNotifier;
-}
-
-// ... existing code ...
-
-/// A mixin that provides store space management capability for [StatelessWidget]s.
-///
-/// This mixin creates and manages a [StoreSpace] instance that will be automatically
-/// updated when the store in the widget tree changes, and disposed when the widget
-/// is removed from the tree.
-///
-/// The [StoreSpace] pairs the ambient [Store] with a baked-in scope, so calling
-/// `space.bind(provider)` acquires an instance scoped to this widget — no need to
-/// thread a separate [Listenable] around as with [ScopedStatelessMixin]. Bound
-/// instances are reference-counted and cleaned up automatically when the widget
-/// is disposed. It is the [StatelessWidget] counterpart to [ScopedSpaceStateMixin].
-///
-/// **Usage:** Override [buildWithSpace] instead of [build].
-///
-/// Example:
-/// ```dart
-/// class MyWidget extends StatelessWidget with ScopedSpaceStatelessMixin {
-///   @override
-///   Widget buildWithSpace(BuildContext context, StoreSpace space) {
-///     final counter = space.bind(counterProvider);
-///     return Text('Counter: $counter');
-///   }
-/// }
-/// ```
-mixin ScopedSpaceStatelessMixin on StatelessWidget {
-  /// Sealed entry point that forwards to [buildWithSpace] with this widget's
+  /// Sealed entry point that forwards to [buildScoped] with this widget's
   /// [StoreSpace].
   ///
   /// Marked [nonVirtual]: do not override it. It requires the dedicated element
@@ -173,12 +89,12 @@ mixin ScopedSpaceStatelessMixin on StatelessWidget {
   @override
   @nonVirtual
   Widget build(BuildContext context) {
-    if (context is! _SpaceAwareStatelessElement) {
+    if (context is! _ScopedStatelessElement) {
       throw StateError(
-        'ScopedSpaceStatelessMixin must be used with its own Element',
+        'ScopedStatelessMixin must be used with its own Element',
       );
     }
-    return buildWithSpace(context, context.space);
+    return buildScoped(context, context.space);
   }
 
   /// Build the widget with the given store space.
@@ -186,36 +102,37 @@ mixin ScopedSpaceStatelessMixin on StatelessWidget {
   /// **IMPORTANT:**
   /// - Do NOT override the [build] method when using this mixin
   /// - Override this method instead to build your widget
-  /// - The [space] parameter provides scoped access to the store and will be automatically disposed when the widget is removed
+  /// - The [space] parameter provides scoped access to the store and will be
+  ///   automatically disposed when the widget is removed
   ///
   /// Call `space.bind(provider)` to acquire scoped instances tied to this
-  /// widget's lifetime, or `space.store.share(provider)` for store-lifetime
-  /// singletons. The [StoreSpace] is rebuilt automatically if the ambient
-  /// [Store] changes.
+  /// widget's lifetime, `space.scope` for the raw [Listenable] scope, or
+  /// `space.share(provider)` for store-lifetime singletons (a [StoreSpace] *is*
+  /// a [Store], so every [Store] method is available on it directly).
   ///
   /// Example:
   /// ```dart
   /// @override
-  /// Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  /// Widget buildScoped(BuildContext context, StoreSpace space) {
   ///   final counter = space.bind(counterProvider);
   ///   return Text('Counter: $counter');
   /// }
   /// ```
   @protected
-  Widget buildWithSpace(BuildContext context, StoreSpace space);
+  Widget buildScoped(BuildContext context, StoreSpace space);
 
   /// Creates the dedicated element that owns this widget's [StoreSpace] and its
   /// disposable scope.
   ///
-  /// The returned element tracks the ambient [Store], rebuilds the space when it
-  /// changes, and disposes the scope on unmount; [build] relies on it being present.
+  /// The returned element implements [ScopeAware], tracks the ambient [Store],
+  /// rebuilds the space when it changes, and disposes the scope on unmount;
+  /// [build] relies on it being present.
   @override
-  StatelessElement createElement() => _SpaceAwareStatelessElement(this);
+  StatelessElement createElement() => _ScopedStatelessElement(this);
 }
 
-class _SpaceAwareStatelessElement extends StatelessElement
-    implements ScopeAware {
-  _SpaceAwareStatelessElement(ScopedSpaceStatelessMixin super.widget);
+class _ScopedStatelessElement extends StatelessElement implements ScopeAware {
+  _ScopedStatelessElement(ScopedStatelessMixin super.widget);
 
   DisposeStateNotifier _disposeNotifier = DisposeStateNotifier();
   Store? _currentStore;
@@ -225,7 +142,26 @@ class _SpaceAwareStatelessElement extends StatelessElement
   Listenable get scope => _disposeNotifier;
 
   StoreSpace get space {
-    final current = store;
+    // Resolved on every build, so report the failure in terms of the mixin
+    // rather than letting `context.store` blame an API the widget never called.
+    final current = storeOrNull;
+    if (current == null) {
+      throw FlutterError.fromParts(<DiagnosticsNode>[
+        ErrorSummary('No StoreScope found for a ScopedStatelessMixin widget'),
+        ErrorDescription(
+          '${widget.runtimeType} mixes in ScopedStatelessMixin, which hands '
+          'buildScoped a StoreSpace built from the ambient Store. That lookup '
+          'happens on every build, so the widget needs a StoreScope ancestor '
+          'even when buildScoped never touches the space.',
+        ),
+        ErrorHint(
+          'Add a StoreScope above this widget. If all you wanted was a disposal '
+          'Listenable with no DI container behind it, drop the mixin and use a '
+          'DisposeStateNotifier inside a StatefulWidget instead.',
+        ),
+        describeElement('The widget being built was'),
+      ]);
+    }
     if (_space == null) {
       _currentStore = current;
       _space = StoreSpace(current, _disposeNotifier);
@@ -235,14 +171,13 @@ class _SpaceAwareStatelessElement extends StatelessElement
       // here — on each build that reads `space` — rather than in
       // didChangeDependencies, which is not called for a pure `space.bind`
       // widget (the store lookup registers no inherited-widget dependency). Bind
-      // to the new store on a fresh scope NOW, and release the OLD scope AFTER
-      // the frame: disposing inline would run instance disposers mid-build and
-      // could trip "markNeedsBuild during build".
+      // to the new store on a fresh scope NOW, and release the OLD scope once it
+      // is safe to run its disposers (see [_releaseWhenSafe]).
       final old = _disposeNotifier;
       _disposeNotifier = DisposeStateNotifier();
       _currentStore = current;
       _space = StoreSpace(current, _disposeNotifier);
-      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+      _releaseWhenSafe(old);
     }
     return _space!;
   }
@@ -256,18 +191,24 @@ class _SpaceAwareStatelessElement extends StatelessElement
   }
 }
 
-/// A mixin that provides store space management capability for [StatefulWidget]s.
+/// A mixin that gives a [State] its own disposal-tracked [StoreSpace], turning
+/// the widget into a [ScopeAware] binding point for scoped providers.
 ///
-/// This mixin creates and manages a [StoreSpace] instance that will be automatically
-/// updated when the store in the widget tree changes, and disposed when the widget
-/// is removed from the tree.
+/// The mixin owns a private [DisposeStateNotifier] and pairs it with the ambient
+/// [Store] as a [StoreSpace]. Calling `space.bind(provider)` acquires an
+/// instance scoped to this widget: bindings are reference-counted across every
+/// scope that binds the same provider, so the instance is disposed only when the
+/// last binding scope is gone. Because this mixin disposes its notifier inside
+/// [dispose], every instance bound through it is released deterministically the
+/// moment this [State] leaves the tree.
 ///
-/// The [StoreSpace] pairs the ambient [Store] with a baked-in scope, so calling
-/// `space.bind(provider)` acquires an instance scoped to this widget — bound
-/// instances are reference-counted and disposed automatically when this [State]
-/// leaves the tree. It is the [StatefulWidget] counterpart to
-/// [ScopedSpaceStatelessMixin]; use [ScopedStateMixin] if you want a raw [scope]
-/// without the store baked in.
+/// Need a raw [Listenable] scope rather than the space — to call
+/// `store.bindWith(provider, scope)` or to hand the lifetime to something else?
+/// Use [scope], which never touches the store. For store-lifetime singletons
+/// reach for [Store.share] / `context.share` and a [Provider.shared] recipe,
+/// which need no scope at all.
+///
+/// It is the [StatefulWidget] counterpart to [ScopedStatelessMixin].
 ///
 /// Example:
 /// ```dart
@@ -276,17 +217,20 @@ class _SpaceAwareStatelessElement extends StatelessElement
 ///   State<MyWidget> createState() => _MyWidgetState();
 /// }
 ///
-/// class _MyWidgetState extends State<MyWidget> with ScopedSpaceStateMixin {
+/// class _MyWidgetState extends State<MyWidget> with ScopedStateMixin {
 ///   @override
 ///   Widget build(BuildContext context) {
-///     // Acquire an instance scoped to this widget's lifetime.
+///     // Acquire an instance scoped to this widget's lifetime. Bind on every
+///     // build rather than caching in a field — binding is idempotent, and a
+///     // cached instance would outlive a store swap that should have replaced
+///     // it (see [scope]).
 ///     final counter = space.bind(counterProvider);
 ///
 ///     return Text('Counter: ${counter.value}');
 ///   }
 /// }
 /// ```
-mixin ScopedSpaceStateMixin<T extends StatefulWidget> on State<T>
+mixin ScopedStateMixin<T extends StatefulWidget> on State<T>
     implements ScopeAware {
   DisposeStateNotifier _disposeNotifier = DisposeStateNotifier();
   Store? _currentStore;
@@ -295,7 +239,18 @@ mixin ScopedSpaceStateMixin<T extends StatefulWidget> on State<T>
   /// The [Listenable] whose notification marks the end of this widget's scope.
   ///
   /// It is the same scope baked into [space], and fires when this [State] is
-  /// disposed, releasing every instance bound through the space.
+  /// disposed, releasing every instance bound through it. Pass it to scoped
+  /// acquisition APIs such as `store.bindWith(provider, scope)` when you need to
+  /// bind against a store other than the ambient one; otherwise prefer [space].
+  ///
+  /// **The notifier this returns is not stable if the widget also uses [space].**
+  /// Reading [space] after the ambient [Store] changed (a [GlobalKey] reparent
+  /// beneath a different [StoreScope]) starts a *fresh* notifier and releases
+  /// this one, so a field like `late final x = store.bindWith(p, scope)` would
+  /// keep pointing at an instance that has already been disposed — silently, and
+  /// only in that reparent case. Re-read [scope] and re-bind on every build
+  /// instead of caching the result. A widget that never touches [space] is
+  /// unaffected: without it the notifier is never swapped.
   @override
   Listenable get scope => _disposeNotifier;
 
@@ -310,22 +265,24 @@ mixin ScopedSpaceStateMixin<T extends StatefulWidget> on State<T>
   /// than in [didChangeDependencies], which is not called for a pure
   /// `space.bind` widget (the store lookup registers no inherited-widget
   /// dependency, so a reparent never notifies it). Call `space.bind(p)` for
-  /// scoped acquisition or `space.store.share(p)` for store-lifetime singletons.
+  /// scoped acquisition or `space.share(p)` for store-lifetime singletons (a
+  /// [StoreSpace] *is* a [Store], so every [Store] method is available on it
+  /// directly).
   StoreSpace get space {
     final current = context.store;
     if (_space == null) {
       _currentStore = current;
       _space = StoreSpace(current, _disposeNotifier);
     } else if (_currentStore != current) {
-      // Start a fresh scope NOW so this build binds to the new store, but
-      // release the OLD scope AFTER the frame: this getter runs during build,
-      // and disposing inline would run instance disposers mid-build (a disposer
-      // that calls notifyListeners would trip "markNeedsBuild during build").
+      // Start a fresh scope NOW so this build binds to the new store, and
+      // release the OLD scope once it is safe to run its disposers. Unlike the
+      // element above, this getter is public and can be read from outside a
+      // frame, which is exactly the case [_releaseWhenSafe] has to handle.
       final old = _disposeNotifier;
       _disposeNotifier = DisposeStateNotifier();
       _currentStore = current;
       _space = StoreSpace(current, _disposeNotifier);
-      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+      _releaseWhenSafe(old);
     }
     return _space!;
   }

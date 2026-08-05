@@ -1,3 +1,25 @@
+## 0.4.0
+
+The four scoped widget mixins collapse into two. Picking an entry point is now a single question — "am I writing a `StatelessWidget` or a `State`?" — instead of a 2×2 matrix whose second axis was never real.
+
+### Changed
+* **BREAKING**: `ScopedSpaceStatelessMixin` → **`ScopedStatelessMixin`**, and its build method `buildWithSpace(context, space)` → **`buildScoped(context, space)`**. Behaviour is unchanged. Migration: rename both.
+* **BREAKING**: `ScopedSpaceStateMixin` → **`ScopedStateMixin`**. Behaviour is unchanged; `space`, `scope`, and `dispose` semantics are identical. Migration: rename the mixin.
+
+### Removed
+* **BREAKING**: the two raw-scope mixins are gone. Their names are **reused** by the mixins above, so read this even if your code still compiles:
+  * `ScopedStateMixin` — the old one exposed only `Listenable scope`; the new one is the former `ScopedSpaceStateMixin`, which exposes the *same* `scope` getter plus a `space` getter. **Existing code needs no change and behaves identically** — `context.store.bindWith(p, scope)` still compiles and still binds against the same notifier. The store is only touched if you actually read `space`, so a `State` that never uses it still works with no `StoreScope` ancestor.
+  * `ScopedStatelessMixin` — the old one handed you `buildScoped(BuildContext, Listenable)`; the new one hands you `buildScoped(BuildContext, StoreSpace)`. For the signature you actually wrote, this is a **compile error**, not a silent change (`StoreSpace` is neither a subtype nor a supertype of `Listenable`, so the override is invalid — adding `covariant` does not rescue it either), and it lands on the exact line that needs attention. Migration: change the parameter type and use `space.bind(p)`, or keep the old call as `context.store.bindWith(p, space.scope)`.
+    * One exception, if you are in the habit of loosening parameter types: declaring the scope parameter as `dynamic` or `Object` **is** a valid override (parameters are checked contravariantly), so such code still compiles and instead fails at runtime with `type 'StoreSpace' is not a subtype of type 'Listenable'` on the first build. Grep for `buildScoped` before upgrading if that describes your code.
+  * Consequence of the above: a `StatelessWidget` using this mixin now resolves the ambient `Store` on every build, so one used **outside** any `StoreScope` throws where it previously did not. If all you want is a disposal `Listenable` with no DI container, use a `DisposeStateNotifier` in a `StatefulWidget` directly. The error raised in that case now names the mixin and explains the requirement, instead of the generic "No StoreScope found in context" pointing at a `context.store` call your code never made.
+
+### Fixed
+* A store swap noticed **outside a frame** no longer strands the old scope (present since 0.2.0, in what was then `ScopedSpaceStateMixin`). `space` re-checks the ambient `Store` on every read and releases the superseded scope via `addPostFrameCallback`, which is correct during a build — running instance disposers mid-build can trip "markNeedsBuild called during build" — but `addPostFrameCallback` does **not** schedule a frame. So a swap first noticed while the scheduler was idle handed the old scope to a callback that never ran, leaking every instance bound against the previous store. The release now runs inline when no frame is in flight and stays deferred during the build phase.
+
+  Reaching it takes a `GlobalKey` reparent beneath a different `StoreScope` that no intervening build notices (easy for a widget that reads `space` conditionally), followed by a read of `space` from an `onPressed`, a `Timer`, or a stream listener. `ScopedStateMixin` is the exposed one, since its `space` is a public getter; on the `StatelessWidget` side the space is only ever read from `build`, which is always inside a frame.
+
+Rationale: `StoreSpace implements ScopeAware`, so a space was always a strict superset of a raw scope (`space.scope` *is* that `Listenable`) — the raw-scope variants bought nothing but a second decision for every user. On the `State` side the space is additionally built lazily, so that superset is free; on the `StatelessWidget` side it is materialised as a build argument, which is exactly the trade noted above. `ScopedBuilder` is unchanged apart from tracking the rename internally.
+
 ## 0.3.0
 
 No public API was removed or changed — but four behaviour changes below are marked **BREAKING**: they can turn a previously green build red without any code change on your side. Read the `Changed` section before upgrading.

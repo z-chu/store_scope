@@ -93,11 +93,11 @@ class StartPage extends StatelessWidget {
   }
 }
 
-class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   CounterPage({super.key});
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     return Scaffold(
       appBar: AppBar(title: const Text('Counter Example')),
       body: Center(

@@ -13,11 +13,11 @@
 ```dart
 final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
 
-class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   const CounterPage({super.key});
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     final vm = space.bind(counterProvider); // 在此创建,随该 Widget 一起析构
     return ValueListenableBuilder<int>(
       valueListenable: vm.count,
@@ -48,7 +48,7 @@ class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
 
 ```yaml
 dependencies:
-  store_scope: ^0.3.0
+  store_scope: ^0.4.0
 ```
 
 ## 快速开始
@@ -85,11 +85,11 @@ final counterProvider = ViewModelProvider<CounterVm>((space) => CounterVm());
 **4. 绑定到 Widget 的作用域**并响应式读取。
 
 ```dart
-class CounterPage extends StatelessWidget with ScopedSpaceStatelessMixin {
+class CounterPage extends StatelessWidget with ScopedStatelessMixin {
   const CounterPage({super.key});
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     final vm = space.bind(counterProvider);
     return Scaffold(
       body: Center(
@@ -160,6 +160,14 @@ final repo = store.bindWith(repoProvider, someListenable);
 final auth = store.share(authProvider);
 final auth = context.share(authProvider);
 ```
+
+**返回值可以不接。** 只想把 provider 的生命周期挂到当前作用域、不打算用实例时,直接把变量去掉即可 —— `bind` 有意不加 `@useResult`,单独一条调用语句不会有任何分析器告警:
+
+```dart
+space.bind(analyticsProvider); // 只关联生命周期,别的什么都不做
+```
+
+同一作用域重复 `bind` 同一个 provider 是幂等的(不会多加一次引用计数),所以在 `build` 里每帧调也安全。但别写成 `late final x = space.bind(p);` —— 惰性字段的值没人读就永远不会初始化,等于没绑定;保持它是一条会立即执行的语句。
 
 ### 带参数(family)
 
@@ -241,15 +249,15 @@ final profileProvider = ViewModelProvider<ProfileVm>((space) {
 
 ```dart
 // StatelessWidget,拿到 StoreSpace:
-class A extends StatelessWidget with ScopedSpaceStatelessMixin {
+class A extends StatelessWidget with ScopedStatelessMixin {
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) =>
+  Widget buildScoped(BuildContext context, StoreSpace space) =>
       Text(space.bind(p).label);
 }
 
 // StatefulWidget,通过 `space` getter 拿到 StoreSpace:
 class B extends StatefulWidget { /* ... */ }
-class _BState extends State<B> with ScopedSpaceStateMixin {
+class _BState extends State<B> with ScopedStateMixin {
   @override
   Widget build(BuildContext context) => Text(space.bind(p).label);
 }
@@ -260,7 +268,7 @@ ScopedBuilder(
 );
 ```
 
-`ScopedStatelessMixin` / `ScopedStateMixin` 暴露的是裸 `Listenable scope`(而非 `StoreSpace`),配合 `context.store.bindWith(p, scope)` 使用。
+不需要再做第二道选择:如果你要的是裸 `Listenable` 作用域而不是 space —— 比如调用 `context.store.bindWith(p, scope)`,或者把生命周期交给别的对象 —— 用 `space.scope` 即可(`ScopedStateMixin` 另外直接暴露了 `scope` getter)。
 
 **`AutoStoreWidget`** 为自己的子树持有一个**全新的** `Store`(适合自包含的页面或流程):
 
@@ -446,8 +454,7 @@ StoreScope(
 | `store.bindWith(p, listenable)` | 绑定到任意 `Listenable` 获取 |
 | `store.share(p)` / `context.share(p)` | 获取 Store 级实例 |
 | `p.overrideWithValue(v)` / `p.overrideWith(...)` | 测试替身 |
-| `ScopedSpaceStatelessMixin` / `ScopedSpaceStateMixin` | 在 Widget 里拿 `StoreSpace` |
-| `ScopedStatelessMixin` / `ScopedStateMixin` | 拿裸 `Listenable scope` |
+| `ScopedStatelessMixin` / `ScopedStateMixin` | 在 Widget 里拿 `StoreSpace` |
 | `ScopedBuilder` | 内联作用域 builder |
 | `AutoStoreWidget` / `AutoStoreStatefulWidget` | 自带独立 store 的 Widget |
 | `DisposeStateNotifier` | 可作自定义作用域的可析构 `Listenable` |

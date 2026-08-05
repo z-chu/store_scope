@@ -6,7 +6,7 @@
 // Covers: Provider.shared + context.share, scoped Provider.withArgument + bind,
 // the new `.asShared` argument providers (Provider & ViewModel), ViewModel
 // lifecycle (init / closeable / dispose), the unmount-disposes-everything fix,
-// StoreScope(overrides:), and the four scoped mixins.
+// StoreScope(overrides:), and the scoped mixins.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,19 +129,19 @@ final parentVmProvider = ViewModelProvider<ParentVm>(
 // Widgets exercising the mixins
 // ---------------------------------------------------------------------------
 
-/// ScopedSpaceStatelessMixin: binds an arg provider in its own space scope.
-class ScopedUserWidget extends StatelessWidget with ScopedSpaceStatelessMixin {
+/// ScopedStatelessMixin: binds an arg provider in its own space scope.
+class ScopedUserWidget extends StatelessWidget with ScopedStatelessMixin {
   const ScopedUserWidget(this.id, {super.key});
   final int id;
 
   @override
-  Widget buildWithSpace(BuildContext context, StoreSpace space) {
+  Widget buildScoped(BuildContext context, StoreSpace space) {
     final u = space.bind(scopedUserProvider(id));
     return Text(u, textDirection: TextDirection.ltr);
   }
 }
 
-/// ScopedSpaceStateMixin: binds a scoped ViewModel and drives it via a button.
+/// ScopedStateMixin: binds a scoped ViewModel and drives it via a button.
 class VmCounterWidget extends StatefulWidget {
   const VmCounterWidget({super.key});
   @override
@@ -149,7 +149,7 @@ class VmCounterWidget extends StatefulWidget {
 }
 
 class _VmCounterWidgetState extends State<VmCounterWidget>
-    with ScopedSpaceStateMixin {
+    with ScopedStateMixin {
   @override
   Widget build(BuildContext context) {
     final vm = space.bind(counterVmProvider);
@@ -172,19 +172,21 @@ class _VmCounterWidgetState extends State<VmCounterWidget>
   }
 }
 
-/// ScopedStatelessMixin: binds via `context.store.bindWith(p, scope)`.
+/// ScopedStatelessMixin: binds via `context.store.bindWith(p, space.scope)`,
+/// exercising the raw-scope escape hatch rather than `space.bind`.
 class ScopedStatelessUser extends StatelessWidget with ScopedStatelessMixin {
   const ScopedStatelessUser(this.id, {super.key});
   final int id;
 
   @override
-  Widget buildScoped(BuildContext context, Listenable scope) {
-    final u = context.store.bindWith(scopedUserProvider(id), scope);
+  Widget buildScoped(BuildContext context, StoreSpace space) {
+    final u = context.store.bindWith(scopedUserProvider(id), space.scope);
     return Text('sl:$u', textDirection: TextDirection.ltr);
   }
 }
 
-/// ScopedStateMixin: a State that is itself a scope (ScopeAware).
+/// ScopedStateMixin: a State that is itself a scope (ScopeAware); binds via the
+/// raw `scope` getter instead of `space`.
 class ScopedStateUser extends StatefulWidget {
   const ScopedStateUser(this.id, {super.key});
   final int id;
@@ -201,15 +203,14 @@ class _ScopedStateUserState extends State<ScopedStateUser>
   }
 }
 
-/// ScopedSpaceStateMixin widget that binds the cascade parent ViewModel.
+/// ScopedStateMixin widget that binds the cascade parent ViewModel.
 class ParentVmWidget extends StatefulWidget {
   const ParentVmWidget({super.key});
   @override
   State<ParentVmWidget> createState() => _ParentVmWidgetState();
 }
 
-class _ParentVmWidgetState extends State<ParentVmWidget>
-    with ScopedSpaceStateMixin {
+class _ParentVmWidgetState extends State<ParentVmWidget> with ScopedStateMixin {
   @override
   Widget build(BuildContext context) {
     final vm = space.bind(parentVmProvider);

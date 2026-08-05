@@ -167,7 +167,7 @@ abstract class Provider<T> extends ProviderBase<T> {
   /// [disposeInstance] (or from `ViewModel.dispose`); attach that work to the
   /// dependency instead.
   ///
-  /// [Store.unmount] does **not** give that guarantee. It flips `mounted` to
+  /// [UnmountableStore.unmount] does **not** give that guarantee. It flips `mounted` to
   /// `false` before destroying anything, so the `store.mounted` branch below is
   /// skipped and no cascade runs at all — instances are simply disposed in
   /// creation order. That order happens to be inside-out for a dependency bound
@@ -203,6 +203,29 @@ abstract class Provider<T> extends ProviderBase<T> {
   /// Called from [dispose] when the last binding scope dies (scoped) or when the
   /// [Store] unmounts (shared). The default is a no-op; override it (or pass a
   /// `disposer` to [Provider.from]) to close streams, controllers, etc.
+  ///
+  /// **Teardown must not trigger a widget rebuild.** Every path into this method
+  /// runs synchronously while Flutter is tearing the element tree down — the
+  /// `State.dispose` / `Element.unmount` that releases a scope, and the
+  /// [UnmountableStore.unmount] a departing `StoreScope` performs, both run inside
+  /// `BuildOwner.finalizeTree`, which holds the tree locked. So calling
+  /// `notifyListeners()`, `setState`, or anything else that reaches
+  /// `markNeedsBuild` from here trips:
+  ///
+  /// ```text
+  /// setState() or markNeedsBuild() called when widget tree was locked.
+  /// ```
+  ///
+  /// It only actually throws when the widget being marked *survives* the
+  /// teardown — a listener still mounted elsewhere on screen. One that unmounts
+  /// alongside you is already inactive and absorbs the call silently, which is
+  /// what makes this easy to miss in development and easy to ship. Keep teardown
+  /// to pure release: cancel subscriptions, close streams and controllers, drop
+  /// references. If something outside really has to hear about the disposal,
+  /// emit it past the end of the frame with
+  /// `WidgetsBinding.instance.addPostFrameCallback` instead of inline. This is
+  /// the rule Flutter follows for itself — `ChangeNotifier.dispose()`
+  /// deliberately does not notify.
   void disposeInstance(T instance) {}
 
   /// Creates a plain SCOPED provider from a [creator] callback.
@@ -210,7 +233,8 @@ abstract class Provider<T> extends ProviderBase<T> {
   /// The instance is built lazily the first time it is bound through a scope
   /// (with [StoreSpace.bind] / [Store.bindWith]), reference-counted across all
   /// scopes that bind it, and disposed — running the optional [disposer] — when
-  /// the last binding scope is gone.
+  /// the last binding scope is gone. The `disposer` runs during widget-tree
+  /// teardown; see [disposeInstance] for what it must not do.
   ///
   /// Example:
   /// ```dart
